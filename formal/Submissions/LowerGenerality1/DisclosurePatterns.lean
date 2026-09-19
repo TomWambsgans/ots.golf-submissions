@@ -114,10 +114,10 @@ theorem max_difference_disclosed (i j : Fin F.numSets) (v : Fin S.graph.size)
         fun h => hgj (Finset.mem_of_mem_erase h)⟩
     exact (not_lt_of_ge (hmax g hgp) hvg).elim
 
-/-- At most 41 disclosed origins and cost at most 92 give at most `choose 131 41` patterns. -/
+/-- At most 42 disclosed origins and cost at most 89 give at most `choose 129 42` patterns. -/
 theorem card_hashPattern_image_le_disclosure (S : Scheme paperParams paperDagFormat)
-    (hdis : S.DisclosureBound 41) (hcost : ∀ i, S.verifyCost i ≤ 92) :
-    (Finset.univ.image S.hashPattern).card ≤ Nat.choose 131 41 := by
+    (hdis : S.DisclosureBound 42) (hcost : ∀ i, S.verifyCost i ≤ 89) :
+    (Finset.univ.image S.hashPattern).card ≤ Nat.choose 129 42 := by
   let Fn := Finset.univ.image S.hashPattern
   let idx (a : Finset (Fin S.graph.size)) : Fin paperDagFormat.numSets :=
     if h : ∃ i, S.hashPattern i = a then Classical.choose h else ⟨0, by decide⟩
@@ -127,22 +127,22 @@ theorem card_hashPattern_image_le_disclosure (S : Scheme paperParams paperDagFor
     have he : ∃ i, S.hashPattern i = a := ⟨i, hi⟩
     simp only [idx, dif_pos he]
     exact Classical.choose_spec he
-  have hA : ∀ a ∈ Fn, a.card ≤ 90 := by
+  have hA : ∀ a ∈ Fn, a.card ≤ 87 := by
     intro a ha
     rw [← hidx a ha]
     have hc := hcost (idx a)
     have hp := S.card_hashPattern_le (idx a)
-    change 1 + S.graph.reconstructCost (S.sets (idx a)) ≤ 92 at hc
+    change 1 + S.graph.reconstructCost (S.sets (idx a)) ≤ 89 at hc
     omega
-  have h := DisclosureCounting.card_le_choose 90 41 Fn id
+  have h := DisclosureCounting.card_le_choose 87 42 Fn id
     (fun a => S.graph.disclosureOrigins (S.sets (idx a)))
     (fun _ _ _ _ he => he) hA (fun a _ => hdis (idx a)) (by
       intro a ha b hb v hv hm
       apply S.max_difference_disclosed (idx a) (idx b) v
       · simpa only [hidx a ha, hidx b hb, id_eq] using hv
       · simpa only [hidx a ha, hidx b hb, id_eq] using hm)
-  have he : Nat.choose 131 90 = Nat.choose 131 41 := by
-    rw [Nat.choose_symm (show 90 ≤ 131 by omega)]
+  have he : Nat.choose 129 87 = Nat.choose 129 42 := by
+    rw [Nat.choose_symm (show 87 ≤ 129 by omega)]
   exact h.trans_eq he
 
 end Scheme

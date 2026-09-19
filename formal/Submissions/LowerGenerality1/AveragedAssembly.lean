@@ -21,7 +21,7 @@ variable (S : Scheme paperParams paperDagFormat)
 attribute [local irreducible] signIdx signIdxLoop Scheme.sign Scheme.signLoop
   weakExperiment forge adversary Graph.encode Scheme.hashPattern Scheme.samePattern goodIndices
 
-theorem signed_stage_ge (hcount : (Finset.univ.image S.hashPattern).card ≤ Nat.choose 131 41)
+theorem signed_stage_ge (hcount : (Finset.univ.image S.hashPattern).card ≤ Nat.choose 129 42)
     (x : S.graph.Assignment) (c : Cache paperParams) (hc : S.graph.CacheConsistent x c)
     (D : Finset Query) (hD : HasSupport c D) (hcard : D.card ≤ 1024)
     (m : Message paperParams) (hfresh : FreshMessage paperDagFormat c m) :
@@ -60,7 +60,7 @@ theorem signed_stage_ge (hcount : (Finset.univ.image S.hashPattern).card ≤ Nat
       norm_num [ENNReal.toReal_div]
     _ ≤ _ := (mul_le_mul' hsign le_rfl).trans hstage
 
-theorem choose_stage_ge (hcount : (Finset.univ.image S.hashPattern).card ≤ Nat.choose 131 41)
+theorem choose_stage_ge (hcount : (Finset.univ.image S.hashPattern).card ≤ Nat.choose 129 42)
     (x : S.graph.Assignment) (c : Cache paperParams) (hc : S.graph.CacheConsistent x c)
     (D : Finset Query) (hD : HasSupport c D) (hcard : D.card ≤ 1024) :
     (9801 / 280000 : ℝ≥0∞) ≤ E ($ᵗ BitVec paperParams.msgBits) (fun m =>
@@ -77,7 +77,7 @@ theorem choose_stage_ge (hcount : (Finset.univ.image S.hashPattern).card ≤ Nat
       norm_num [ENNReal.toReal_div]
     _ ≤ _ := (mul_le_mul' hmass le_rfl).trans h
 
-theorem success_ge_count (hcount : (Finset.univ.image S.hashPattern).card ≤ Nat.choose 131 41) :
+theorem success_ge_count (hcount : (Finset.univ.image S.hashPattern).card ≤ Nat.choose 129 42) :
     (9801 / 280000 : ℝ≥0∞) ≤ probTrue paperParams (weakExperiment S (adversary S (2 ^ 122))) := by
   rw [probTrue_eq_expectation, experiment_eq, run_bind, E_bind]
   rw [← expectedValue_const (mx := run paperParams S.keygen ∅) (by simp)
@@ -96,7 +96,7 @@ theorem success_ge_count (hcount : (Finset.univ.image S.hashPattern).card ≤ Na
 
 /-- The whole experiment, including key generation and signing, beats 127-bit security. -/
 theorem budget_lt :
-    ((paperParams.keygenCost + paperDagFormat.trialLimit + 2 ^ 122 + 2 * 91 + 2 : ℕ) : ℝ≥0∞) /
+    ((paperParams.keygenCost + paperDagFormat.trialLimit + 2 ^ 122 + 2 * 88 + 2 : ℕ) : ℝ≥0∞) /
       2 ^ paperParams.securityBits < 9801 / 280000 := by
   apply (ENNReal.toReal_lt_toReal (by finiteness) (by finiteness)).mp
   norm_num [ENNReal.toReal_div, paperParams, paperDagFormat]

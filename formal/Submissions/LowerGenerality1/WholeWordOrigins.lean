@@ -7,7 +7,7 @@ import Submissions.LowerGenerality1.DisclosurePatterns
 Every distinct origin requires at least one complete 128-bit word. A hash contributes
 one origin and has 256 bits; either permitted half contributes that same single origin
 and has 128 bits. A fixed public 128-bit word has no parents and hence no origins. Concatenation takes unions of origins while adding all input lengths,
-including repeated inputs. Thus a 5248-bit payload has at most 41 distinct origins.
+including repeated inputs. Thus a 5376-bit payload has at most 42 distinct origins.
 -/
 
 noncomputable section
@@ -107,14 +107,14 @@ theorem card_disclosureOrigins_mul128_le (hwhole : G.WholeWords)
 
 end Graph
 
-/-- The whole-word syntactic restriction implies the 41-origin bound from the payload budget. -/
-theorem Scheme.disclosureBound41_of_wholeWords (S : Scheme paperParams paperDagFormat)
+/-- The whole-word syntactic restriction implies the 42-origin bound from the payload budget. -/
+theorem Scheme.disclosureBound42_of_wholeWords (S : Scheme paperParams paperDagFormat)
     (hwhole : S.graph.WholeWords) :
-    S.DisclosureBound 41 := by
+    S.DisclosureBound 42 := by
   intro i
   have ho := S.graph.card_disclosureOrigins_mul128_le hwhole (S.sets i)
   have hl := S.reveal_le i
-  change S.graph.revealBits (S.sets i) ≤ 5248 at hl
+  change S.graph.revealBits (S.sets i) ≤ 5376 at hl
   omega
 
 end OptimalOTS

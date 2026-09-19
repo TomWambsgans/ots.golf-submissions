@@ -44,12 +44,12 @@ theorem sum_fiber_hitRate_ge {ι α : Type*} [Fintype ι] [DecidableEq α]
   simpa only [Finset.sum_const, nsmul_eq_mul, mul_comm] using h
 
 theorem paper_weighted_rate_ge (S : Scheme paperParams paperDagFormat)
-    (hcount : (Finset.univ.image S.hashPattern).card ≤ Nat.choose 131 41) :
+    (hcount : (Finset.univ.image S.hashPattern).card ≤ Nat.choose 129 42) :
     (1 / 28 : ℝ≥0∞) ≤
       ENNReal.ofReal (FreshSign.rate paperParams paperDagFormat paperDagFormat.trialLimit) *
         ∑ i, AveragedSearch.hitRate (S.samePattern i).card := by
   let M : ℝ := 2 ^ 115
-  let K : ℝ := Nat.choose 131 41
+  let K : ℝ := Nat.choose 129 42
   have hM : 0 < M := by dsimp [M]; norm_num
   have hK : 0 ≤ K := Nat.cast_nonneg _
   have hden : 0 < 64 * K + M :=
