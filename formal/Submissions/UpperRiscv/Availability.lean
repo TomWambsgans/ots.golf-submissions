@@ -17,67 +17,78 @@ open scoped Classical
 
 namespace OptimalOTS.Forest.Availability
 
+open OptimalOTS.Dag
+
+
 attribute [local irreducible] Finset.univ Finset.filter validSet numValid
 
 /-- Failure probability of one fresh index query. -/
 def miss : ℝ≥0∞ :=
-  ((2 ^ 256 - numValid paperDagFormat * 2 ^ 128 : ℕ) : ℝ≥0∞) * (((2 ^ 256 : ℕ) : ℝ≥0∞))⁻¹
+  ((2 ^ 256 - numValid * 2 ^ 128 : ℕ) : ℝ≥0∞) * (((2 ^ 256 : ℕ) : ℝ≥0∞))⁻¹
 
-theorem miss_eq : miss = ((2 ^ 256 - numValid paperDagFormat * 2 ^ 128 : ℕ) : ℝ≥0∞) / 2 ^ 256 := by
+theorem miss_eq : miss = ((2 ^ 256 - numValid * 2 ^ 128 : ℕ) : ℝ≥0∞) / 2 ^ 256 := by
   rw [miss, div_eq_mul_inv, Nat.cast_pow, Nat.cast_ofNat]
 
 /-- At least `2 ^ 115` of the `2 ^ 128` indices are accepted. -/
 theorem miss_le : miss ≤ 8191 / 8192 := by
-  have hN : 2 ^ 243 ≤ numValid paperDagFormat * 2 ^ 128 :=
+  have hN : 2 ^ 243 ≤ numValid * 2 ^ 128 :=
     calc 2 ^ 243 = 2 ^ 115 * 2 ^ 128 := by norm_num
       _ ≤ _ := Nat.mul_le_mul_right _ numValid_ge
-  have ha : 2 ^ 256 - numValid paperDagFormat * 2 ^ 128 ≤ 8191 * 2 ^ 243 := by
+  have ha : 2 ^ 256 - numValid * 2 ^ 128 ≤ 8191 * 2 ^ 243 := by
     have h := Nat.sub_le_sub_left hN (2 ^ 256)
     have e : 2 ^ 256 - 2 ^ 243 = 8191 * 2 ^ 243 := by norm_num
     omega
-  calc miss = ((2 ^ 256 - numValid paperDagFormat * 2 ^ 128 : ℕ) : ℝ≥0∞) / 2 ^ 256 := miss_eq
+  calc miss = ((2 ^ 256 - numValid * 2 ^ 128 : ℕ) : ℝ≥0∞) / 2 ^ 256 := miss_eq
     _ ≤ ((8191 * 2 ^ 243 : ℕ) : ℝ≥0∞) / 2 ^ 256 := ENNReal.div_le_div_right (Nat.cast_le.mpr ha) _
     _ = 8191 / 8192 := by
       rw [ENNReal.div_eq_div_iff (by norm_num) (by finiteness) (by norm_num) (by finiteness)]
       norm_num
 
-private theorem uniform_miss_count (P : Params) (F : DagFormat) (hidx : F.idxBits ≤ P.hashBits)
-    (hM : numValid F ≤ 2 ^ F.idxBits) (a : ℝ≥0∞) :
-    E ($ᵗ BitVec P.hashBits) (fun w => if idxOf P F w ∈ validSet F then 0 else a) =
-      ((2 ^ P.hashBits - numValid F * 2 ^ (P.hashBits - F.idxBits) : ℕ) : ℝ≥0∞) *
-        (((2 ^ P.hashBits : ℕ) : ℝ≥0∞)⁻¹ * a) := by
-  have hv : (Finset.univ.filter fun w : BitVec P.hashBits => idxOf P F w ∈ validSet F).card =
-      numValid F * 2 ^ (P.hashBits - F.idxBits) := by
-    have h := Analysis.card_idxOfOut_mem (P := P) hidx (validSet F)
+attribute [local irreducible] hashBits blockBits pkBits msgBits securityBits maxSignatureBits keygenBudget signBudget nonceBits idxBits numCuts trials
+
+/-- Stated for any width, so that the kernel never enumerates the 256-bit strings. -/
+private theorem card_filter_not_bitVec {n k : ℕ} (p : BitVec n → Prop) [DecidablePred p]
+    (hv : (Finset.univ.filter p).card = k) :
+    (Finset.univ.filter fun w => ¬ p w).card = 2 ^ n - k := by
+  have h := Finset.card_filter_add_card_filter_not (s := (Finset.univ : Finset (BitVec n))) (p := p)
+  rw [hv, Finset.card_univ, Fintype.card_bitVec] at h
+  omega
+
+private theorem uniform_miss_count (hidx : idxBits ≤ hashBits)
+    (hM : numValid ≤ 2 ^ idxBits) (a : ℝ≥0∞) :
+    E ($ᵗ BitVec hashBits) (fun w => if idxOf w ∈ validSet then 0 else a) =
+      ((2 ^ hashBits - numValid * 2 ^ (hashBits - idxBits) : ℕ) : ℝ≥0∞) *
+        (((2 ^ hashBits : ℕ) : ℝ≥0∞)⁻¹ * a) := by
+  have hv : (Finset.univ.filter fun w : BitVec hashBits => idxOf w ∈ validSet).card =
+      numValid * 2 ^ (hashBits - idxBits) := by
+    have h := Analysis.card_idxOfOut_mem hidx (validSet)
       (fun n hn => mem_validSet_lt hn)
     convert h using 1 <;> simp [Analysis.idxOfOut, idxOf, numValid]
-  have hn : (Finset.univ.filter fun w : BitVec P.hashBits => ¬ idxOf P F w ∈ validSet F).card =
-      2 ^ P.hashBits - numValid F * 2 ^ (P.hashBits - F.idxBits) := by
-    have h := Finset.card_filter_add_card_filter_not
-      (s := (Finset.univ : Finset (BitVec P.hashBits)))
-      (p := fun w => idxOf P F w ∈ validSet F)
-    rw [hv, Finset.card_univ, Fintype.card_bitVec] at h
-    omega
+  have hn : (Finset.univ.filter fun w : BitVec hashBits => ¬ idxOf w ∈ validSet).card =
+      2 ^ hashBits - numValid * 2 ^ (hashBits - idxBits) :=
+    card_filter_not_bitVec _ hv
   rw [E_uniform]
   simp only [mul_ite, mul_zero]
   rw [Finset.sum_ite, Finset.sum_const_zero, zero_add, Finset.sum_const,
     nsmul_eq_mul, hn, Fintype.card_bitVec]
 
+attribute [local semireducible] hashBits blockBits pkBits msgBits securityBits maxSignatureBits keygenBudget signBudget nonceBits idxBits numCuts trials
+
 private theorem uniform_miss (a : ℝ≥0∞) :
-    E ($ᵗ BitVec paperParams.hashBits)
-      (fun w => if idxOf paperParams paperDagFormat w ∈ validSet paperDagFormat then 0 else a) = miss * a := by
-  rw [uniform_miss_count paperParams (F := paperDagFormat) (by decide) (numValid_le paperDagFormat), ← mul_assoc]
-  have h1 : paperParams.hashBits = 256 := rfl
-  have h2 : paperParams.hashBits - paperDagFormat.idxBits = 128 := rfl
+    E ($ᵗ BitVec hashBits)
+      (fun w => if idxOf w ∈ validSet then 0 else a) = miss * a := by
+  rw [uniform_miss_count (by decide) (numValid_le), ← mul_assoc]
+  have h1 : hashBits = 256 := rfl
+  have h2 : hashBits - idxBits = 128 := rfl
   rw [h2, h1]
   rfl
 
 /-- Exact failure probability while enough untried nonces remain and their queries are fresh. -/
-theorem loop_failure (m : Message paperParams) :
-    ∀ (k : ℕ) (tried : Finset (Nonce paperDagFormat)) (c : Cache paperParams),
-      tried.card + k ≤ 2 ^ paperDagFormat.nonceBits →
-      (∀ η ∉ tried, c (encQuery paperParams paperDagFormat (m ++ η)) = none) →
-      E (run paperParams (signIdxLoop paperParams paperDagFormat m k tried) c)
+theorem loop_failure (m : Message) :
+    ∀ (k : ℕ) (tried : Finset Nonce) (c : Cache),
+      tried.card + k ≤ 2 ^ nonceBits →
+      (∀ η ∉ tried, c (encQuery (m ++ η)) = none) →
+      E (run (signIdxLoop m k tried) c)
         (fun p => if p.1.isNone then 1 else 0) = miss ^ k := by
   intro k
   induction k with
@@ -89,24 +100,24 @@ theorem loop_failure (m : Message paperParams) :
     have hc : 0 < (Finset.univ \ tried).card := by
       rw [Finset.card_univ_sdiff, Fintype.card_bitVec]
       omega
-    rw [signIdxLoop_succ paperParams paperDagFormat m k tried hc, run_query_bind, oracleImpl_run_inl]
+    rw [signIdxLoop_succ m k tried hc, run_query_bind, oracleImpl_run_inl]
     simp only [bind_assoc, pure_bind, E_bind]
     have hbody : ∀ j,
-        E (run paperParams (loopBody paperParams paperDagFormat m k tried (nonceOf paperDagFormat tried hc j)) c)
+        E (run (loopBody m k tried (nonceOf tried hc j)) c)
           (fun p => if p.1.isNone then 1 else 0) = miss ^ (k + 1) := by
       intro j
-      let η := nonceOf paperDagFormat tried hc j
-      have hη : η ∉ tried := (Finset.mem_sdiff.mp (nonceOf_mem paperDagFormat tried hc j)).2
-      rw [loopBody, run_query_bind, oracleImpl_run_inr_none paperParams (hfresh η hη)]
+      let η := nonceOf tried hc j
+      have hη : η ∉ tried := (Finset.mem_sdiff.mp (nonceOf_mem tried hc j)).2
+      rw [loopBody, run_query_bind, oracleImpl_run_inr_none (hfresh η hη)]
       simp only [bind_assoc, pure_bind, E_bind]
-      have hkont : ∀ w : BitVec paperParams.hashBits,
-          E (run paperParams (afterHash paperParams paperDagFormat m k tried η w)
-            (c.cacheQuery (encQuery paperParams paperDagFormat (m ++ η)) w))
+      have hkont : ∀ w : BitVec hashBits,
+          E (run (afterHash m k tried η w)
+            (c.cacheQuery (encQuery (m ++ η)) w))
             (fun p => if p.1.isNone then 1 else 0) =
-          if idxOf paperParams paperDagFormat w ∈ validSet paperDagFormat then 0 else miss ^ k := by
+          if idxOf w ∈ validSet then 0 else miss ^ k := by
         intro w
         unfold afterHash
-        by_cases hw : idxOf paperParams paperDagFormat w ∈ validSet paperDagFormat
+        by_cases hw : idxOf w ∈ validSet
         · rw [dif_pos hw, if_pos hw, run_pure, E_pure]
           rfl
         · rw [dif_neg hw, if_neg hw]
@@ -114,15 +125,15 @@ theorem loop_failure (m : Message paperParams) :
           · rw [Finset.card_insert_of_notMem hη]
             omega
           · intro η' hη'
-            have hne : encQuery paperParams paperDagFormat (m ++ η') ≠ encQuery paperParams paperDagFormat (m ++ η) := by
+            have hne : encQuery (m ++ η') ≠ encQuery (m ++ η) := by
               intro heq
-              have he := append_nonce_inj paperParams paperDagFormat m (encQuery_inj paperParams paperDagFormat heq)
+              have he := append_nonce_inj m (encQuery_inj heq)
               exact hη' (he ▸ Finset.mem_insert_self η tried)
             rw [QueryCache.cacheQuery_of_ne _ _ hne]
             exact hfresh η' (fun h => hη' (Finset.mem_insert_of_mem h))
       calc
-        _ = E ($ᵗ BitVec paperParams.hashBits)
-            (fun w => if idxOf paperParams paperDagFormat w ∈ validSet paperDagFormat then 0 else miss ^ k) := by
+        _ = E ($ᵗ BitVec hashBits)
+            (fun w => if idxOf w ∈ validSet then 0 else miss ^ k) := by
           congr 1
           funext w
           exact hkont w
@@ -165,7 +176,7 @@ private theorem miss_block : miss ^ 8192 ≤ 1 / 2 := by
   rwa [hb, hh] at h'
 
 /-- The full signing budget contains 128 blocks, each with failure at most one half. -/
-theorem miss_trials_le : miss ^ paperDagFormat.trialLimit ≤ 1 / 2 ^ 128 := by
+theorem miss_trials_le : miss ^ trials ≤ 1 / 2 ^ 128 := by
   change miss ^ (8192 * 128) ≤ 1 / 2 ^ 128
   rw [pow_mul]
   calc
@@ -173,27 +184,27 @@ theorem miss_trials_le : miss ^ paperDagFormat.trialLimit ≤ 1 / 2 ^ 128 := by
     _ = 1 / 2 ^ 128 := by simp only [one_div, ENNReal.inv_pow]
 
 /-- Signing has the same failure probability for every message and every fresh index cache. -/
-theorem sign_failure (x : forestScheme.graph.Assignment) (m : Message paperParams)
-    (c : Cache paperParams) (hfresh : ∀ η : Nonce paperDagFormat, c (encQuery paperParams paperDagFormat (m ++ η)) = none) :
-    E (run paperParams (forestScheme.sign x m) c)
-      (fun p => if p.1.isNone then 1 else 0) = miss ^ paperDagFormat.trialLimit := by
+theorem sign_failure (x : forestScheme.graph.Assignment) (m : Message)
+    (c : Cache) (hfresh : ∀ η : Nonce, c (encQuery (m ++ η)) = none) :
+    E (run (forestScheme.sign x m) c)
+      (fun p => if p.1.isNone then 1 else 0) = miss ^ trials := by
   rw [sign_eq_map, run_map, E_map]
   simp only [Option.isNone_map]
-  exact loop_failure m _ ∅ c (by norm_num [paperDagFormat]) (fun η _ => hfresh η)
+  exact loop_failure m _ ∅ c (by norm_num [nonceBits, idxBits, numCuts, trials, idxCost, blockCost, signBudget, msgBits, blockBits]) (fun η _ => hfresh η)
 
 /-- Failure remains bounded even when the message is chosen after seeing the public key. -/
 theorem signingFailure_strong :
     forestScheme.toAlgorithm.SigningFailureAtMost (1 / 2 ^ 128 : ℝ≥0∞) := by
   intro message
-  change probTrue paperParams (do
+  change probTrue (do
     let kg ← forestScheme.keygen
     let σ ← forestScheme.sign kg.2 (message kg.1)
     pure σ.isNone) ≤ _
   rw [probTrue_eq_E_run, run_bind, E_bind, E_run_keygen_forest]
   simp only [run_bind, E_bind, run_pure, E_pure]
   have hs : ∀ ξ : Rec,
-      E (run paperParams (forestScheme.sign (graph.evalRec ξ) (message (pkOf ξ))) (kc ξ))
-        (fun p => if p.1.isNone then 1 else 0) = miss ^ paperDagFormat.trialLimit := by
+      E (run (forestScheme.sign (graph.evalRec ξ) (message (pkOf ξ))) (kc ξ))
+        (fun p => if p.1.isNone then 1 else 0) = miss ^ trials := by
     intro ξ
     exact sign_failure _ _ _ (fun η => kc_enc ξ _)
   simp_rw [hs]
@@ -203,6 +214,9 @@ theorem signingFailure_strong :
 end OptimalOTS.Forest.Availability
 
 namespace OptimalOTS.GenericAvailability
+
+open OptimalOTS.Dag
+
 
 /-- The forest algorithm meets the generic upper challenge's signing-failure allowance. -/
 theorem signingFailure :

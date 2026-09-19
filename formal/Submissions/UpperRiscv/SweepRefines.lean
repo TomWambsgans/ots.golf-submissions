@@ -11,17 +11,20 @@ composes a whole segment, threading an invariant indexed by the segment's remain
 
 namespace OptimalOTS.RiscvUpperProgram.Compact
 
+open OptimalOTS.Dag
+
+
 open RiscvZkvm.Rv64 Forest Forest.Name RiscvUpperForest.ForestVerifier OracleComp
 
 set_option allowUnsafeReducibility true
 attribute [local reducible] Forest.graph
 attribute [local irreducible] Forest.fixedPositions Forest.fixedDigits
 
-variable (index : Idx paperDagFormat) (payload : List Bool)
+variable (index : Idx) (payload : List Bool)
 
 /-- The sequential reader, also returning its final cursor. -/
 def runNodes' : List Name → graph.Assignment → ℕ →
-    OracleComp (Spec paperParams) (graph.Assignment × ℕ)
+    OracleComp Spec (graph.Assignment × ℕ)
   | [], x, cursor => pure (x, cursor)
   | n :: ns, x, cursor => cursorStep index payload x cursor n >>= fun r => runNodes' ns r.1 r.2
 
@@ -56,7 +59,7 @@ structure Segment where
 remaining nodes, and lands on the following code, at the charged cost plus the continuation. -/
 def Segment.NodeRefines (seg : Segment) (n : Name) : Prop :=
   ∀ (s : MachineState) (x : graph.Assignment) (cursor : ℕ) (rest : List Name) (tail : Code)
-    (K : graph.Assignment × ℕ → OracleComp (Spec paperParams) (Option Bool)) (c budget fuel : ℕ),
+    (K : graph.Assignment × ℕ → OracleComp Spec (Option Bool)) (c budget fuel : ℕ),
     n ∉ rest → seg.Inv s x cursor (n :: rest) → Riscv.CodeAt s s.pc (seg.code n ++ tail) →
     (seg.code n).length + budget ≤ fuel →
     (∀ (t : MachineState) (r : graph.Assignment × ℕ),
@@ -68,7 +71,7 @@ def Segment.NodeRefines (seg : Segment) (n : Name) : Prop :=
 /-- A whole segment refines the sequential reader over its nodes. -/
 theorem sweep_refines (seg : Segment) (nodes : List Name) (nodup : nodes.Nodup)
     (each : ∀ n ∈ nodes, seg.NodeRefines index payload n) (tail : Code)
-    (K : graph.Assignment × ℕ → OracleComp (Spec paperParams) (Option Bool)) (c rest' : ℕ)
+    (K : graph.Assignment × ℕ → OracleComp Spec (Option Bool)) (c rest' : ℕ)
     (continuation : ∀ (t : MachineState) (y : graph.Assignment) (cursor' : ℕ),
       seg.Inv t y cursor' [] → Riscv.CodeAt t t.pc tail →
       ∀ left, rest' ≤ left → Riscv.Refines left t (K (y, cursor')) c) :

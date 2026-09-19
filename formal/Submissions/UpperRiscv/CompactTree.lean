@@ -8,6 +8,9 @@ and the decision.
 
 namespace OptimalOTS.RiscvUpperProgram.Compact
 
+open OptimalOTS.Dag
+
+
 open RiscvZkvm.Rv64 Forest Forest.Name RiscvUpperForest.ForestVerifier OracleComp
 
 set_option allowUnsafeReducibility true
@@ -47,7 +50,7 @@ structure TreeRegs (s : MachineState) : Prop where
   call : s.getReg .x5 = Riscv.hashCall
   length : s.getReg .x11 = 400
 
-variable (index : Idx paperDagFormat) (payload : List Bool) (pk : PublicKey paperParams)
+variable (index : Idx) (payload : List Bool) (pk : PublicKey)
 
 structure TreeCtx (s : MachineState) (cursor : ℕ) (rem : List Name) : Prop where
   context : ExecutionContext s index payload pk
@@ -204,7 +207,7 @@ theorem cursorStep_gh (j : Fin 21) (x : graph.Assignment) (cursor : ℕ) :
     cursorStep index payload x cursor (gh j) =
       if j.val < 12 then
         (fun y => (Function.update x (gh j).fin (y.cast (graph_len_fin (gh j)).symm), cursor)) <$>
-          hash paperParams (x (gc j).fin)
+          hash (x (gc j).fin)
       else pure (Function.update x (gh j).fin 0, cursor) := by
   unfold cursorStep
   simp only [disclosed, Bool.false_eq_true, if_false, evaluated_gh, decide_eq_true_eq]
@@ -748,7 +751,7 @@ theorem gh_refines (after : List Name) (j : Fin 21) :
         rwa [show BitVec.ofNat 64 (8 * 3) = (24 : Word) from rfl] at h
     have wInput : Riscv.hashInput w = ⟨graph.len (gc j).fin, x (gc j).fin⟩ :=
       hashInput_of_memBits w10 (by rw [wLen, gc_len]; rfl) wValue
-    have blocks : blockCost paperParams (graph.len (gc j).fin) = 1 := by rw [gc_len]; decide
+    have blocks : blockCost (graph.len (gc j).fin) = 1 := by rw [gc_len]; decide
     rw [groupBlock_length, show (groupLin j).length + 1 + c = (groupLin j).length + (1 + c) by omega,
       show fuel = (groupLin j).length + ((fuel - (groupLin j).length - 1) + 1) by omega]
     apply Riscv.Refines.linear _ located.append_left ready
@@ -1180,7 +1183,7 @@ theorem treeSetup_gcInv (s : MachineState) (x : graph.Assignment) (cursor : ℕ)
 
 /-- The whole group phase refines the reader over the group nodes. -/
 theorem groups_refines (tail : Code)
-    (K : graph.Assignment × ℕ → OracleComp (Spec paperParams) (Option Bool)) (c rest' : ℕ)
+    (K : graph.Assignment × ℕ → OracleComp Spec (Option Bool)) (c rest' : ℕ)
     (continuation : ∀ (u : MachineState) (y : graph.Assignment) (cursor' : ℕ),
       GroupsDone index payload pk u y cursor' → Riscv.CodeAt u u.pc tail →
       ∀ left, rest' ≤ left → Riscv.Refines left u (K (y, cursor')) c)

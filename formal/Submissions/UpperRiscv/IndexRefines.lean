@@ -5,6 +5,9 @@ import Submissions.UpperRiscv.IndexChecks
 
 namespace OptimalOTS.RiscvUpperProgram
 
+open OptimalOTS.Dag
+
+
 open RiscvZkvm.Rv64 OracleComp
 
 theorem reject_refines (s : MachineState) (fuel : ℕ)
@@ -29,7 +32,7 @@ theorem reject_refines (s : MachineState) (fuel : ℕ)
 /-- A failed check reaches HALT false; a passed check jumps over that block. -/
 theorem checkedBranch_refines (s : MachineState) (fuel : ℕ)
     (located : Riscv.CodeAt s s.pc (whenNonzero .x26 reject)) (bound : 4 ≤ fuel)
-    {q : OracleComp (Spec paperParams) (Option Bool)} {c : ℕ} (hc : 3 ≤ c)
+    {q : OracleComp Spec (Option Bool)} {c : ℕ} (hc : 3 ≤ c)
     (h : s.getReg .x26 = 0#64 → Riscv.Refines (fuel - 1) (skipReject s) q c) :
     Riscv.Refines fuel s (if s.getReg .x26 = 0#64 then q else pure (some false)) (c + 1) := by
   have transition := whenNonzero_transition s .x26 reject (by decide) located
@@ -64,7 +67,7 @@ theorem capped_length_eq (bits : List Bool) :
 theorem indexChecks_refines (s : MachineState) (fuel : ℕ)
     (scratch : s.getReg .x19 = BitVec.ofNat 64 scratchBase)
     (located : Riscv.CodeAt s s.pc indexChecks) (bound : 249 ≤ fuel)
-    {q : OracleComp (Spec paperParams) (Option Bool)} {c : ℕ} (hc : 3 ≤ c)
+    {q : OracleComp Spec (Option Bool)} {c : ℕ} (hc : 3 ≤ c)
     (h : Accepted (indexOf s) → (5376 : Word) ^^^ s.getReg .x13 = 0#64 →
       Riscv.Refines (fuel - 243) (checkedIndexState s) q c) :
     Riscv.Refines fuel s
@@ -141,9 +144,9 @@ theorem indexChecks_refines (s : MachineState) (fuel : ℕ)
 
 /-- The machine issues the specified first query, rejects exactly the invalid index and length
 cases, and otherwise enters any proved continuation, at 267 cycles plus the continuation. -/
-theorem indexAndChecks_refines (image : Riscv.Image) (pk : PublicKey paperParams)
-    (m : Message paperParams) (bits : List Bool) (hdata : image.data.length ≤ 1048576)
-    (rest fuel : ℕ) (q : BitVec 256 → OracleComp (Spec paperParams) (Option Bool)) (c : ℕ)
+theorem indexAndChecks_refines (image : Riscv.Image) (pk : PublicKey)
+    (m : Message) (bits : List Bool) (hdata : image.data.length ≤ 1048576)
+    (rest fuel : ℕ) (q : BitVec hashBits → OracleComp Spec (Option Bool)) (c : ℕ)
     (hc : 3 ≤ c)
     (located : Riscv.CodeAt (Riscv.initialState image pk m bits)
       (Riscv.initialState image pk m bits).pc indexAndChecks)
@@ -154,7 +157,7 @@ theorem indexAndChecks_refines (image : Riscv.Image) (pk : PublicKey paperParams
           (checkedIndexState (Riscv.writeHash (indexInputState image pk m bits) answer))
           (q answer) c) :
     Riscv.Refines fuel (Riscv.initialState image pk m bits) (do
-      let answer ← hash paperParams (m ++ ofBits 128 bits)
+      let answer ← hash (m ++ ofBits 128 bits)
       if Accepted (answer.setWidth 128).toNat ∧ bits.length = 5376 then q answer
       else pure (some false)) (c + 267) := by
   rw [indexAndChecks_parts] at located
@@ -193,8 +196,8 @@ theorem indexAndChecks_refines (image : Riscv.Image) (pk : PublicKey paperParams
   have lin := Riscv.Refines.linear indexPrefix located.append_left ready hashed
   rw [length, show 23 + (fuel - 24 + 1) = fuel by omega] at lin
   refine lin.mono ?_
-  change 23 + (blockCost paperParams 384 + (c + 243)) ≤ c + 267
-  have : blockCost paperParams 384 = 1 := by decide
+  change 23 + (blockCost 384 + (c + 243)) ≤ c + 267
+  have : blockCost 384 = 1 := by decide
   omega
 
 end OptimalOTS.RiscvUpperProgram

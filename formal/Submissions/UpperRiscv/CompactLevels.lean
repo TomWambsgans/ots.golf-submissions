@@ -10,6 +10,9 @@ epilogue advances the disclosure cursor past the 36 chain words for the tree pha
 
 namespace OptimalOTS.RiscvUpperProgram.Compact
 
+open OptimalOTS.Dag
+
+
 open RiscvZkvm.Rv64 Forest Forest.Name RiscvUpperForest.ForestVerifier OracleComp
 
 set_option allowUnsafeReducibility true
@@ -55,7 +58,7 @@ theorem cost_eq_length (seg : Segment) (nodes : List Name)
   congr 1
   exact List.map_congr_left h
 
-variable (index : Idx paperDagFormat) (payload : List Bool) (pk : PublicKey paperParams)
+variable (index : Idx) (payload : List Bool) (pk : PublicKey)
 
 /-- The cycles of chains `k` and later: `13 + 3 (14 - p)` for each active chain. -/
 def costFrom (k : ℕ) : ℕ :=
@@ -175,7 +178,7 @@ def ChainsDone (s : MachineState) (x : graph.Assignment) (cursor : ℕ) : Prop :
 
 /-- Chains `k` and later refine the reader over their nodes. -/
 theorem chainsFrom_refines (tail : Code)
-    (K : graph.Assignment × ℕ → OracleComp (Spec paperParams) (Option Bool)) (c rest' : ℕ)
+    (K : graph.Assignment × ℕ → OracleComp Spec (Option Bool)) (c rest' : ℕ)
     (continuation : ∀ (u : MachineState) (y : graph.Assignment),
       ChainsInv index payload pk u y 63 → Riscv.CodeAt u u.pc tail →
       ∀ left, rest' ≤ left → Riscv.Refines left u (K (y, 4608)) c) :
@@ -237,7 +240,7 @@ def chainsCost : ℕ := chainSetup.length + costFrom index 0 + chainsEnd.length
 
 /-- The whole chain phase refines the reader over the chain nodes of `order`. -/
 theorem chains_refines (tail : Code)
-    (K : graph.Assignment × ℕ → OracleComp (Spec paperParams) (Option Bool)) (c rest' : ℕ)
+    (K : graph.Assignment × ℕ → OracleComp Spec (Option Bool)) (c rest' : ℕ)
     (continuation : ∀ (u : MachineState) (y : graph.Assignment) (cursor' : ℕ),
       ChainsDone index payload pk u y cursor' → Riscv.CodeAt u u.pc tail →
       ∀ left, rest' ≤ left → Riscv.Refines left u (K (y, cursor')) c)

@@ -13,13 +13,16 @@ the position on issue one hash per level.
 
 namespace OptimalOTS.RiscvUpperProgram.Compact
 
+open OptimalOTS.Dag
+
+
 open RiscvZkvm.Rv64 Forest Forest.Name RiscvUpperForest.ForestVerifier OracleComp
 
 set_option allowUnsafeReducibility true
 attribute [local reducible] Forest.graph
 attribute [local irreducible] Forest.fixedPositions Forest.fixedDigits
 
-variable (index : Idx paperDagFormat) (payload : List Bool) (pk : PublicKey paperParams)
+variable (index : Idx) (payload : List Bool) (pk : PublicKey)
 
 abbrev pos (k : Fin 63) : ℕ := (fixedPositions index k).val
 
@@ -103,7 +106,7 @@ theorem cursorStep_ch (k : Fin 63) (t : Fin 14) (x : graph.Assignment) (cursor :
       if k.val < 36 ∧ pos index k ≤ t.val then
         (fun y =>
           (Function.update x (ch k t).fin (y.cast (graph_len_fin (ch k t)).symm), cursor)) <$>
-          hash paperParams (x (ci k t).fin)
+          hash (x (ci k t).fin)
       else pure (Function.update x (ch k t).fin 0, cursor) := by
   unfold cursorStep
   simp only [disclosed, Bool.false_eq_true, if_false, evaluated, decide_eq_true_eq]
@@ -172,15 +175,15 @@ theorem read_value (k : Fin 63) (n : Name) (hn : graph.len n.fin = 128) (cursor 
   rw [take]
   exact held
 
-theorem writeHash_regs (w : MachineState) (a : BitVec 256) (r : Reg) :
+theorem writeHash_regs (w : MachineState) (a : BitVec hashBits) (r : Reg) :
     (Riscv.writeHash w a).getReg r = w.getReg r := by
   simp [Riscv.writeHash]
 
-theorem writeHash_code (w : MachineState) (a : BitVec 256) :
+theorem writeHash_code (w : MachineState) (a : BitVec hashBits) :
     (Riscv.writeHash w a).code = w.code := by
   simp [Riscv.writeHash]
 
-theorem writeHash_pc (w : MachineState) (a : BitVec 256) :
+theorem writeHash_pc (w : MachineState) (a : BitVec hashBits) :
     (Riscv.writeHash w a).pc = w.pc + 4 := rfl
 
 theorem slotAddr_access (k : Fin 63) (hk : k.val < 36) (j : ℕ) (hj : j < 4) :
@@ -212,9 +215,9 @@ theorem pcAdd (p : Word) (a b : ℕ) :
     p + BitVec.ofNat 64 a + BitVec.ofNat 64 b = p + BitVec.ofNat 64 (a + b) := by
   rw [BitVec.add_assoc, BitVec.ofNat_add]
 
-theorem mem_support_hash {n : ℕ} (u : BitVec n) (y : BitVec 256) :
-    y ∈ support (hash paperParams u) := by
-  have h : support (hash paperParams u) = Set.univ := by simp [OptimalOTS.hash]
+theorem mem_support_hash {n : ℕ} (u : BitVec n) (y : BitVec hashBits) :
+    y ∈ support (hash u) := by
+  have h : support (hash u) = Set.univ := by simp [OptimalOTS.hash]
   rw [h]
   exact Set.mem_univ y
 
@@ -472,7 +475,7 @@ theorem valueNode_len (k : Fin 63) (t : ℕ) (ht : t ≤ 14) : graph.len (valueN
 /-! ## One hash step -/
 
 /-- The three specification steps of level `t` of an evaluated chain, as one hash. -/
-def tripleUpdate (x : graph.Assignment) (k : Fin 63) (t : Fin 14) (y : BitVec 256) :
+def tripleUpdate (x : graph.Assignment) (k : Fin 63) (t : Fin 14) (y : BitVec hashBits) :
     graph.Assignment :=
   Function.update (Function.update (Function.update x (ci k t).fin
       ((tw (ch k t) ++ Forest.trunc (x (prev k t).fin)).cast (graph_len_fin (ci k t)).symm))
@@ -482,7 +485,7 @@ def tripleUpdate (x : graph.Assignment) (k : Fin 63) (t : Fin 14) (y : BitVec 25
 theorem triple_run (k : Fin 63) (hk : k.val < 36) (t : Fin 14) (ht : pos index k ≤ t.val)
     (x : graph.Assignment) (cursor : ℕ) :
     runNodes' index payload [ci k t, ch k t, cv k t] x cursor =
-      hash paperParams ((tw (ch k t) ++ Forest.trunc (x (prev k t).fin)).cast
+      hash ((tw (ch k t) ++ Forest.trunc (x (prev k t).fin)).cast
           (graph_len_fin (ci k t)).symm) >>= fun y => pure (tripleUpdate x k t y, cursor) := by
   have hev : k.val < 36 ∧ pos index k ≤ t.val := ⟨hk, ht⟩
   have hnd : ¬ (k.val < 36 ∧ pos index k = t.val + 1) := fun h => by omega
@@ -490,17 +493,17 @@ theorem triple_run (k : Fin 63) (hk : k.val < 36) (t : Fin 14) (ht : pos index k
     pure_bind, bind_assoc, map_eq_bind_pure_comp, Function.comp_def, Function.update_self,
     tripleUpdate]
 
-theorem tripleUpdate_cv (x : graph.Assignment) (k : Fin 63) (t : Fin 14) (y : BitVec 256) :
+theorem tripleUpdate_cv (x : graph.Assignment) (k : Fin 63) (t : Fin 14) (y : BitVec hashBits) :
     tripleUpdate x k t y (cv k t).fin =
       (Forest.trunc (y.cast (graph_len_fin (ch k t)).symm)).cast (graph_len_fin (cv k t)).symm := by
   simp only [tripleUpdate, Function.update_self]
 
-theorem tripleUpdate_ch (x : graph.Assignment) (k : Fin 63) (t : Fin 14) (y : BitVec 256) :
+theorem tripleUpdate_ch (x : graph.Assignment) (k : Fin 63) (t : Fin 14) (y : BitVec hashBits) :
     tripleUpdate x k t y (ch k t).fin = y.cast (graph_len_fin (ch k t)).symm := by
   simp only [tripleUpdate]
   rw [Function.update_of_ne (fin_ne_of_ne (by simp)), Function.update_self]
 
-theorem tripleUpdate_other (x : graph.Assignment) (k : Fin 63) (t : Fin 14) (y : BitVec 256)
+theorem tripleUpdate_other (x : graph.Assignment) (k : Fin 63) (t : Fin 14) (y : BitVec hashBits)
     (n : Name) (h1 : n ≠ ci k t) (h2 : n ≠ ch k t) (h3 : n ≠ cv k t) :
     tripleUpdate x k t y n.fin = x n.fin := by
   simp only [tripleUpdate]
@@ -528,11 +531,11 @@ theorem writeTag_length_small (k : Fin 63) (hk : k.val < 36) (t : Fin 14) :
 
 /-- Level `t` of chain `k`: the tag store and the hash, at three cycles. -/
 theorem step_refines (k : Fin 63) (hk : k.val < 36) (t : Fin 14) (ht : pos index k ≤ t.val)
-    (tail : Code) (K : graph.Assignment × ℕ → OracleComp (Spec paperParams) (Option Bool))
+    (tail : Code) (K : graph.Assignment × ℕ → OracleComp Spec (Option Bool))
     (c budget cursor : ℕ) (s : MachineState) (x : graph.Assignment) (fuel : ℕ)
     (inv : StepInv index payload pk s x k) (held : Holds s k (x (prev k t).fin))
     (located : Riscv.CodeAt s s.pc (chainStep k t ++ tail)) (bound : 3 + budget ≤ fuel)
-    (continuation : ∀ (u : MachineState) (y : BitVec 256),
+    (continuation : ∀ (u : MachineState) (y : BitVec hashBits),
       StepInv index payload pk u (tripleUpdate x k t y) k →
       Holds u k (tripleUpdate x k t y (cv k t).fin) → Riscv.CodeAt u u.pc tail →
       ∀ left, budget ≤ left → Riscv.Refines left u (K (tripleUpdate x k t y, cursor)) c) :
@@ -585,7 +588,7 @@ theorem step_refines (k : Fin 63) (hk : k.val < 36) (t : Fin 14) (ht : pos index
       have h := appended
       rw [inv.regs.base] at h
       exact h
-  have blocks : blockCost paperParams (graph.len (ci k t).fin) = 1 := by
+  have blocks : blockCost (graph.len (ci k t).fin) = 1 := by
     rw [ci_len]; decide
   -- compose: tag store, hash, continuation
   rw [show fuel = (writeTag (tw (ch k t)) (chainSlot k + 16)).length + ((fuel - 3) + 1) by
@@ -662,7 +665,7 @@ theorem step_refines (k : Fin 63) (hk : k.val < 36) (t : Fin 14) (ht : pos index
 
 /-- Levels `t` to `13` of chain `k`. -/
 theorem steps_refines (k : Fin 63) (hk : k.val < 36) (tail : Code)
-    (K : graph.Assignment × ℕ → OracleComp (Spec paperParams) (Option Bool)) (c rest' cursor : ℕ)
+    (K : graph.Assignment × ℕ → OracleComp Spec (Option Bool)) (c rest' cursor : ℕ)
     (continuation : ∀ (u : MachineState) (y : graph.Assignment),
       StepInv index payload pk u y k → Holds u k (y (cv k 13).fin) → Riscv.CodeAt u u.pc tail →
       ∀ left, rest' ≤ left → Riscv.Refines left u (K (y, cursor)) c) :
@@ -828,7 +831,7 @@ theorem inactive_inert (k : Fin 63) (hk : ¬ k.val < 36) :
 
 /-- An inactive chain has no machine code and no oracle queries. -/
 theorem inactive_refines (k : Fin 63) (hk : ¬ k.val < 36)
-    (K : graph.Assignment × ℕ → OracleComp (Spec paperParams) (Option Bool))
+    (K : graph.Assignment × ℕ → OracleComp Spec (Option Bool))
     (x : graph.Assignment) (cursor : ℕ) (s : MachineState) (fuel c : ℕ)
     (continuation : ∀ y : graph.Assignment,
       (∀ k' : Fin 63, k'.val < 36 → y (cv k' 13).fin = x (cv k' 13).fin) →
@@ -921,7 +924,7 @@ control jumps to the table entry of the disclosed level, at 13 cycles. -/
 theorem prologue_refines (k : Fin 63) (hk : k.val < 36) (rest : Code) (s : MachineState)
     (x : graph.Assignment) (inv : ChainsInv index payload pk s x k.val)
     (located : Riscv.CodeAt s s.pc (chainPrologue k ++ rest))
-    {fuel : ℕ} {q : OracleComp (Spec paperParams) (Option Bool)} {c : ℕ}
+    {fuel : ℕ} {q : OracleComp Spec (Option Bool)} {c : ℕ}
     (continuation : ∀ u : MachineState,
       StepInv index payload pk u x k → Holds u k (ofBits 128 (payload.drop (128 * k.val))) →
       u.code = s.code → u.pc = s.pc + BitVec.ofNat 64 (52 + 12 * pos index k) →
@@ -1040,7 +1043,7 @@ theorem prologue_refines (k : Fin 63) (hk : k.val < 36) (rest : Code) (s : Machi
 /-- One active chain: its prologue, then the levels from its disclosed position, at
 `13 + 3 (14 - p)` cycles. -/
 theorem chain_refines (k : Fin 63) (hk : k.val < 36) (tail : Code)
-    (K : graph.Assignment × ℕ → OracleComp (Spec paperParams) (Option Bool)) (c rest' : ℕ)
+    (K : graph.Assignment × ℕ → OracleComp Spec (Option Bool)) (c rest' : ℕ)
     (continuation : ∀ (u : MachineState) (y : graph.Assignment),
       ChainsInv index payload pk u y (k.val + 1) → Riscv.CodeAt u u.pc tail →
       ∀ left, rest' ≤ left → Riscv.Refines left u (K (y, 128 * k.val + 128)) c)

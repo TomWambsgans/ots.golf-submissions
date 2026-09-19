@@ -10,6 +10,9 @@ lemma follows the little-endian ABI: the low vector occupies the lower addresses
 
 namespace OptimalOTS.RiscvUpperProgram
 
+open OptimalOTS.Dag
+
+
 open RiscvZkvm.Rv64
 
 /-- The next `n` memory bits represent `v`, least significant bit first. -/

@@ -4,13 +4,16 @@ import Submissions.UpperRiscv.CompactTree
 
 namespace OptimalOTS.RiscvUpperProgram.Compact
 
+open OptimalOTS.Dag
+
+
 open RiscvZkvm.Rv64 Forest Forest.Name RiscvUpperForest.ForestVerifier OracleComp
 
 set_option allowUnsafeReducibility true
 attribute [local reducible] Forest.graph
 attribute [local irreducible] Forest.fixedPositions Forest.fixedDigits
 
-variable (index : Idx paperDagFormat) (payload : List Bool) (pk : PublicKey paperParams)
+variable (index : Idx) (payload : List Bool) (pk : PublicKey)
 
 /-! ## Subtree nodes -/
 
@@ -46,7 +49,7 @@ theorem cursorStep_eh (l : Fin 7) (x : graph.Assignment) (cursor : ℕ) :
     cursorStep index payload x cursor (eh l) =
       if l.val < 5 then
         (fun y => (Function.update x (eh l).fin (y.cast (graph_len_fin (eh l)).symm), cursor)) <$>
-          hash paperParams (x (ec l).fin)
+          hash (x (ec l).fin)
       else pure (Function.update x (eh l).fin 0, cursor) := by
   unfold cursorStep
   simp only [disclosed, Bool.false_eq_true, if_false, evaluated_eh, decide_eq_true_eq]
@@ -387,7 +390,7 @@ theorem eh_refines (after : List Name) (l : Fin 7) :
         rwa [show BitVec.ofNat 64 (8 * 3) = (24 : Word) from rfl] at h
     have wInput : Riscv.hashInput w = ⟨graph.len (ec l).fin, x (ec l).fin⟩ :=
       hashInput_of_memBits w10 (by rw [wLen, ec_len]; rfl) wValue
-    have blocks : blockCost paperParams (graph.len (ec l).fin) = 1 := by rw [ec_len]; decide
+    have blocks : blockCost (graph.len (ec l).fin) = 1 := by rw [ec_len]; decide
     rw [subtreeBlock_length, show (subtreeLin l).length + 1 + c = (subtreeLin l).length + (1 + c) by omega,
       show fuel = (subtreeLin l).length + ((fuel - (subtreeLin l).length - 1) + 1) by omega]
     apply Riscv.Refines.linear _ located.append_left ready
@@ -743,7 +746,7 @@ theorem ev_last (s : MachineState) (x : graph.Assignment) (cursor : ℕ)
 
 /-- The whole subtree phase refines the reader over the subtree nodes. -/
 theorem subtrees_refines (tail : Code)
-    (K : graph.Assignment × ℕ → OracleComp (Spec paperParams) (Option Bool)) (c rest' : ℕ)
+    (K : graph.Assignment × ℕ → OracleComp Spec (Option Bool)) (c rest' : ℕ)
     (continuation : ∀ (u : MachineState) (y : graph.Assignment) (cursor' : ℕ),
       SubtreesDone index payload pk u y cursor' → Riscv.CodeAt u u.pc tail →
       ∀ left, rest' ≤ left → Riscv.Refines left u (K (y, cursor')) c)

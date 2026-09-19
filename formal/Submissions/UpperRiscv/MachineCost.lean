@@ -16,7 +16,7 @@ theorem execute_regular (fuel : ℕ) (s : MachineState) (i : Instr)
   simp only [admitted, Bool.not_true, Bool.false_eq_true, ↓reduceIte]
   cases i <;> rfl
 
-theorem addCycles_bound (computation : OracleComp (Spec paperParams) Outcome) (a b : ℕ)
+theorem addCycles_bound (computation : OracleComp Spec Outcome) (a b : ℕ)
     (bound : ∀ decision cycles, some (decision, cycles) ∈ support computation → cycles ≤ b)
     (decision : Bool) (cycles : ℕ)
     (h : some (decision, cycles) ∈ support (addCycles a <$> computation)) : cycles ≤ a + b := by

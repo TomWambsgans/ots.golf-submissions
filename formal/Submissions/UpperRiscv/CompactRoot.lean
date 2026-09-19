@@ -4,13 +4,16 @@ import Submissions.UpperRiscv.CompactSubtrees
 
 namespace OptimalOTS.RiscvUpperProgram.Compact
 
+open OptimalOTS.Dag
+
+
 open RiscvZkvm.Rv64 Forest Forest.Name RiscvUpperForest.ForestVerifier OracleComp
 
 set_option allowUnsafeReducibility true
 attribute [local reducible] Forest.graph
 attribute [local irreducible] Forest.fixedPositions Forest.fixedDigits
 
-variable (index : Idx paperDagFormat) (payload : List Bool) (pk : PublicKey paperParams)
+variable (index : Idx) (payload : List Bool) (pk : PublicKey)
 
 /-! ## The root -/
 
@@ -25,7 +28,7 @@ theorem cursorStep_rc (x : graph.Assignment) (cursor : ℕ) :
 theorem cursorStep_rh (x : graph.Assignment) (cursor : ℕ) :
     cursorStep index payload x cursor rh =
       (fun y => (Function.update x rh.fin (y.cast (graph_len_fin rh).symm), cursor)) <$>
-        hash paperParams (x rc.fin) := by
+        hash (x rc.fin) := by
   unfold cursorStep
   rw [if_neg (by simp [disclosed]), if_pos (by simp [evaluated]), runOp_eq]
   simp only [evalName, Functor.map_map]
@@ -384,7 +387,7 @@ theorem decisionPrefix_effect (s : MachineState) (root key : BitVec 128)
 
 open scoped Classical in
 /-- After the root hash, the decision block halts with the specified verdict. -/
-theorem decision_refines (s : MachineState) (answer : BitVec 256) (fuel : ℕ)
+theorem decision_refines (s : MachineState) (answer : BitVec hashBits) (fuel : ℕ)
     (x18 : s.getReg .x18 = scratchAddr) (located : Riscv.CodeAt s s.pc decision)
     (hroot : MemBits s (scratchAddr + BitVec.ofNat 64 128) answer)
     (hpk : MemBits s Riscv.publicKeyBase pk) (bound : decision.length ≤ fuel) :
@@ -460,7 +463,7 @@ theorem rootDecision_refines (s : MachineState) (x : graph.Assignment) (cursor f
     · exact scratch_word_access 152 (by decide) (by decide)
   have wInput : Riscv.hashInput w = ⟨graph.len rc.fin, x' rc.fin⟩ :=
     hashInput_of_memBits w10 (by rw [w11, rc_len]; rfl) wValue
-  have blocks : blockCost paperParams (graph.len rc.fin) = 2 := by rw [rc_len]; decide
+  have blocks : blockCost (graph.len rc.fin) = 2 := by rw [rc_len]; decide
   rw [root_length] at bound ⊢
   rw [show rootLin.length + 1 + 1 + decision.length = rootLin.length + (2 + decision.length) by omega,
     show fuel = rootLin.length + ((fuel - rootLin.length - 1) + 1) by omega]

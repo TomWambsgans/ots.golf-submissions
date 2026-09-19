@@ -4,15 +4,18 @@ import Submissions.UpperRiscv.ExecutionContext
 
 namespace OptimalOTS.RiscvUpperProgram
 
+open OptimalOTS.Dag
+
+
 open RiscvZkvm.Rv64
 
 /-- The state entering the chain phase: the index accepted and the positions written. -/
-def decodedInput (image : Riscv.Image) (pk : PublicKey paperParams) (m : Message paperParams)
-    (bits : List Bool) (answer : BitVec 256) : MachineState :=
+def decodedInput (image : Riscv.Image) (pk : PublicKey) (m : Message)
+    (bits : List Bool) (answer : BitVec hashBits) : MachineState :=
   checkedIndexState (Riscv.writeHash (indexInputState image pk m bits) answer)
 
-theorem decodedInput_pc (image : Riscv.Image) (pk : PublicKey paperParams)
-    (m : Message paperParams) (bits : List Bool) (answer : BitVec 256) :
+theorem decodedInput_pc (image : Riscv.Image) (pk : PublicKey)
+    (m : Message) (bits : List Bool) (answer : BitVec hashBits) :
     (decodedInput image pk m bits answer).pc =
       Riscv.codeBase + BitVec.ofNat 64 (4 * indexAndChecks.length) := by
   rw [decodedInput, checkedIndexState_pc _ (by rfl)]
@@ -20,21 +23,21 @@ theorem decodedInput_pc (image : Riscv.Image) (pk : PublicKey paperParams)
   rw [indexInput_pc, indexAndChecks_length]
   decide +kernel
 
-theorem decodedInput_code (image : Riscv.Image) (pk : PublicKey paperParams)
-    (m : Message paperParams) (bits : List Bool) (answer : BitVec 256) :
+theorem decodedInput_code (image : Riscv.Image) (pk : PublicKey)
+    (m : Message) (bits : List Bool) (answer : BitVec hashBits) :
     (decodedInput image pk m bits answer).code = (Riscv.initialState image pk m bits).code := by
   rw [decodedInput, checkedIndexState_code]
   simp only [Riscv.writeHash, MachineState.code_setPC, MachineState.code_writeWords]
   exact Riscv.fold_code _ _
 
-theorem decodedInput_base (image : Riscv.Image) (pk : PublicKey paperParams)
-    (m : Message paperParams) (bits : List Bool) (answer : BitVec 256) :
+theorem decodedInput_base (image : Riscv.Image) (pk : PublicKey)
+    (m : Message) (bits : List Bool) (answer : BitVec hashBits) :
     (decodedInput image pk m bits answer).getReg .x8 = BitVec.ofNat 64 positionsBase :=
   checkedIndexState_base _
 
 /-- The stored positions are exactly the layout's chain positions for the accepted index. -/
-theorem decodedInput_positions (image : Riscv.Image) (pk : PublicKey paperParams)
-    (m : Message paperParams) (bits : List Bool) (answer : BitVec 256)
+theorem decodedInput_positions (image : Riscv.Image) (pk : PublicKey)
+    (m : Message) (bits : List Bool) (answer : BitVec hashBits)
     (hi : Accepted (answer.setWidth 128).toNat) :
     PositionMemory (decodedInput image pk m bits answer)
       (Forest.fixedPositions (acceptedIdx answer hi)) := by
@@ -60,14 +63,14 @@ theorem decodedInput_positions (image : Riscv.Image) (pk : PublicKey paperParams
   · rw [if_neg h32, if_neg h32]
     rfl
 
-theorem decodedInput_publicKey (image : Riscv.Image) (pk : PublicKey paperParams)
-    (m : Message paperParams) (bits : List Bool) (answer : BitVec 256) :
+theorem decodedInput_publicKey (image : Riscv.Image) (pk : PublicKey)
+    (m : Message) (bits : List Bool) (answer : BitVec hashBits) :
     MemBits (decodedInput image pk m bits answer) Riscv.publicKeyBase pk := by
   apply checked_memBits _ _ _ (by decide) (by decide) (by decide)
   exact indexHash_publicKey image pk m bits answer
 
-theorem decodedInput_payload (image : Riscv.Image) (pk : PublicKey paperParams)
-    (m : Message paperParams) (bits : List Bool) (answer : BitVec 256)
+theorem decodedInput_payload (image : Riscv.Image) (pk : PublicKey)
+    (m : Message) (bits : List Bool) (answer : BitVec hashBits)
     (hdata : image.data.length ≤ 1048576) :
     MemBits (decodedInput image pk m bits answer) (Riscv.signatureBase + 16)
       (ofBits 5248 (bits.drop 128)) := by
@@ -75,8 +78,8 @@ theorem decodedInput_payload (image : Riscv.Image) (pk : PublicKey paperParams)
   exact indexHash_payload image pk m bits answer hdata
 
 /-- The checked raw inputs establish the reconstruction context. -/
-theorem decodedInput_context (image : Riscv.Image) (pk : PublicKey paperParams)
-    (m : Message paperParams) (bits : List Bool) (answer : BitVec 256)
+theorem decodedInput_context (image : Riscv.Image) (pk : PublicKey)
+    (m : Message) (bits : List Bool) (answer : BitVec hashBits)
     (hdata : image.data.length ≤ 1048576) (hi : Accepted (answer.setWidth 128).toNat) :
     ExecutionContext (decodedInput image pk m bits answer)
       (acceptedIdx answer hi) (bits.drop 128) pk :=

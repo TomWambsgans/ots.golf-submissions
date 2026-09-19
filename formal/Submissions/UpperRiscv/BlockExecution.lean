@@ -7,7 +7,7 @@ namespace OptimalOTS.Riscv
 open RiscvZkvm.Rv64 OracleComp
 
 /-- Observe the decision while retaining the entire oracle computation. -/
-def observe (fuel : ℕ) (s : MachineState) : OracleComp (Spec paperParams) (Option Bool) :=
+def observe (fuel : ℕ) (s : MachineState) : OracleComp Spec (Option Bool) :=
   Option.map Prod.fst <$> execute fuel s
 
 theorem observe_regular (fuel : ℕ) (s next : MachineState) (i : Instr)
@@ -25,7 +25,7 @@ theorem observe_hash (fuel : ℕ) (s : MachineState)
     (fetch : s.code s.pc = some .ECALL) (call : s.getReg .x5 = hashCall)
     (valid : hashArgumentsValid s = true) :
     observe (fuel + 1) s = (do
-      let answer ← hash paperParams (hashInput s).2
+      let answer ← hash (hashInput s).2
       observe fuel (writeHash s answer)) := by
   unfold observe
   rw [execute, fetch]
@@ -93,7 +93,7 @@ theorem CodeAt.tail {s : MachineState} {pc : Word} {i : Instr} {code : List Inst
   exact CodeAt.append_right (first := [i]) located
 
 /-- The competition loader installs every instruction of a valid image at its specified PC. -/
-theorem CodeAt.initial (image : Image) (pk : PublicKey paperParams) (m : Message paperParams)
+theorem CodeAt.initial (image : Image) (pk : PublicKey) (m : Message)
     (bits : List Bool) (valid : image.Valid) :
     CodeAt (initialState image pk m bits) codeBase image.code := by
   have code : (initialState image pk m bits).code = loadProgram codeBase image.code := by

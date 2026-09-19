@@ -29,7 +29,8 @@ computation. `Solution.lean` exports `OptimalOTS.Challenge.UpperRiscv.submission
 
 | File | Content |
 |---|---|
-| `Wire.lean`, `WireAdapter.lean` | the OTS certificate transferred to raw signature bit strings |
+| `TypedScheme.lean` | internal interface: oracle algorithms with a typed signature and an injective encoding |
+| `Wire.lean`, `WireAdapter.lean` | the OTS certificate transferred to `Wire.scheme : OracleAlgorithm.Scheme` on raw signature bit strings |
 | `Refines.lean` | `Riscv.Refines`: an observed oracle computation with a cycle bound |
 | `CompactVerifier.lean` | `image_refines`: the image equals the certified verifier on every input, within 1628 cycles |
 | `IndexChecks.lean`, `IndexRefines.lean`, `IndexInput.lean` | the index query, the nibble sweep and the input checks |
@@ -39,7 +40,7 @@ computation. `Solution.lean` exports `OptimalOTS.Challenge.UpperRiscv.submission
 | `TagStore.lean` | the tweak stores shared by all hash inputs |
 | `SweepRefines.lean` | the generic per-node segment framework |
 | `CompactBlocks.lean`, `CompactLayout.lean`, `BlockExecution.lean`, `AssemblyMacros.lean`, `CopyProof.lean`, `HashOutput.lean`, `LoaderProof.lean`, `MachineCost.lean`, `MachineMemory.lean` | machine semantics, memory layout and reusable execution rules |
-| `Candidate.lean` | `machineCertificate`, bundling the OTS and machine proofs |
+| `Candidate.lean` | the submission `{ scheme := Wire.scheme, image, fuel }` and `machineCertificate`, bundling the OTS and machine proofs |
 | `Solution.lean` | the exported declarations |
 
 ## Verify

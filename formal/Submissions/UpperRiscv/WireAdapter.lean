@@ -1,6 +1,7 @@
 import Submissions.UpperRiscv.AlgorithmCosts
 
-/-! Transfer an algorithm certificate to its canonical transmitted bit strings. -/
+/-! Transfer a typed-signature certificate to the contract's scheme on the encoded bit strings.
+Signing outputs the encoding; verification parses a bit string with `decode`. -/
 
 open OracleComp ENNReal
 noncomputable section
@@ -8,18 +9,16 @@ open scoped Classical
 
 namespace OptimalOTS.WireAdapter
 
-variable {P : Params} (S : AlgorithmScheme P) (decode : List Bool → S.Signature)
+variable (S : TypedScheme) (decode : List Bool → S.Signature)
 
-abbrev scheme : AlgorithmScheme P where
+/-- The scheme on bit strings. -/
+abbrev scheme : OracleAlgorithm.Scheme where
   SecretKey := S.SecretKey
-  Signature := List Bool
-  encodeSignature := id
-  encodeSignature_injective := Function.injective_id
   keygen := S.keygen
   sign := fun sk m => Option.map S.encodeSignature <$> S.sign sk m
   verify := fun pk m bits => S.verify pk m (decode bits)
 
-def adversary (A : (scheme S decode).Adversary) : S.Adversary where
+def adversary (A : OracleAlgorithm.Adversary) : S.Adversary where
   State := A.State
   choose := A.choose
   forge := fun state signed =>
@@ -30,9 +29,10 @@ variable (inverse : ∀ σ, decode (S.encodeSignature σ) = σ)
     S.encodeSignature (decode bits) = bits)
 
 include inverse canonical in
-theorem experiment_eq (A : (scheme S decode).Adversary) :
-    (scheme S decode).experiment A = S.experiment (adversary S decode A) := by
-  simp only [AlgorithmScheme.experiment, scheme, adversary, bind_map_left]
+theorem experiment_eq (A : OracleAlgorithm.Adversary) :
+    OracleAlgorithm.experiment (scheme S decode) A = S.experiment (adversary S decode A) := by
+  simp only [OracleAlgorithm.experiment, TypedScheme.experiment, scheme, adversary,
+    bind_map_left]
   apply bind_congr
   intro keys
   apply bind_congr
@@ -69,7 +69,8 @@ theorem secure (h : S.Secure) : (scheme S decode).Secure := by
 
 include inverse in
 theorem correct (h : S.Correct) : (scheme S decode).Correct := by
-  unfold AlgorithmScheme.Correct at h ⊢
+  unfold TypedScheme.Correct at h
+  unfold OracleAlgorithm.Scheme.Correct
   intro message
   rw [← h message]
   congr 1
@@ -84,7 +85,7 @@ theorem signingFailure (ε : ℝ≥0∞) (h : S.SigningFailureAtMost ε) :
     (scheme S decode).SigningFailureAtMost ε := by
   intro message
   have original := h message
-  simpa only [AlgorithmScheme.SigningFailureAtMost, scheme, bind_map_left,
+  simpa only [OracleAlgorithm.Scheme.SigningFailureAtMost, scheme, bind_map_left,
     Option.isNone_map] using original
 
 theorem signatureSize (n : ℕ) (h : S.SignatureSizeAtMost n) :
@@ -97,7 +98,6 @@ theorem signatureSize (n : ℕ) (h : S.SignatureSizeAtMost n) :
   | none => cases he
   | some σ =>
     have equal : S.encodeSignature σ = bits := Option.some.inj he
-    change bits.length ≤ n
     rw [← equal]
     exact h sk m σ hs
 
@@ -105,19 +105,17 @@ include canonical in
 theorem rejectsOversized (n : ℕ) (h : S.RejectsOversized n) :
     (scheme S decode).RejectsOversized n := by
   intro pk m bits hsize accepted
-  change n < bits.length at hsize
   have hc := canonical pk m bits accepted
   exact h pk m (decode bits) (by simpa only [hc] using hsize) accepted
 
 include inverse canonical in
-theorem admissible (ε : ℝ≥0∞) (h : S.Admissible ε) :
-    (scheme S decode).Admissible ε where
-  failure_lt_one := h.failure_lt_one
+theorem admissible (h : S.Admissible (1 / 2 ^ signingFailureBits)) :
+    (scheme S decode).Admissible where
   correct := correct S decode inverse h.correct
   verifyDeterministic := fun pk m bits => h.verifyDeterministic pk m (decode bits)
-  signingFailure := signingFailure S decode ε h.signingFailure
-  signatureSize := signatureSize S decode P.signatureBits h.signatureSize
-  rejectsOversized := rejectsOversized S decode canonical P.signatureBits h.rejectsOversized
+  signingFailure := signingFailure S decode _ h.signingFailure
+  signatureSize := signatureSize S decode maxSignatureBits h.signatureSize
+  rejectsOversized := rejectsOversized S decode canonical maxSignatureBits h.rejectsOversized
   keygenCost := h.keygenCost
   signCost := fun sk m => AlgorithmCosts.CostAtMost.map (h.signCost sk m) _
 

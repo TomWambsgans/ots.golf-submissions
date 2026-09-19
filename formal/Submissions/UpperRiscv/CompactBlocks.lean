@@ -11,6 +11,9 @@ slot addresses, and the registers fixed throughout the chain phase.
 
 namespace OptimalOTS.RiscvUpperProgram.Compact
 
+open OptimalOTS.Dag
+
+
 open RiscvZkvm.Rv64 OracleComp
 
 /-! ## Aligned bases -/

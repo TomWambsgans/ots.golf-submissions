@@ -12,6 +12,9 @@ scheme succeeds with the same probability as before.
 
 namespace OptimalOTS
 
+open OptimalOTS.Dag
+
+
 /-- The digit sum of every accepted index. -/
 def target : ℕ := 166
 
@@ -81,27 +84,29 @@ def Accepted (i : ℕ) : Prop :=
 
 instance : DecidablePred Accepted := fun i => by unfold Accepted; infer_instance
 
+attribute [local irreducible] hashBits blockBits pkBits msgBits securityBits maxSignatureBits keygenBudget signBudget nonceBits idxBits numCuts trials
+
 /-- The accepted indices below `2 ^ idxBits`. -/
-def validSet (F : DagFormat) : Finset ℕ := (Finset.range (2 ^ F.idxBits)).filter Accepted
+def validSet : Finset ℕ := (Finset.range (2 ^ idxBits)).filter Accepted
 
 /-- A valid index. -/
-abbrev Idx (F : DagFormat) : Type := {i : ℕ // i ∈ validSet F}
+abbrev Idx : Type := {i : ℕ // i ∈ validSet}
 
 /-- The number of valid indices. -/
-def numValid (F : DagFormat) : ℕ := (validSet F).card
+def numValid : ℕ := (validSet).card
 
-theorem mem_validSet {F : DagFormat} {i : ℕ} : i ∈ validSet F ↔ i < 2 ^ F.idxBits ∧ Accepted i := by
+theorem mem_validSet {i : ℕ} : i ∈ validSet ↔ i < 2 ^ idxBits ∧ Accepted i := by
   simp [validSet]
 
-theorem mem_validSet_lt {F : DagFormat} {i : ℕ} (h : i ∈ validSet F) : i < 2 ^ F.idxBits :=
+theorem mem_validSet_lt {i : ℕ} (h : i ∈ validSet) : i < 2 ^ idxBits :=
   (mem_validSet.mp h).1
 
-theorem mem_validSet_accepted {F : DagFormat} {i : ℕ} (h : i ∈ validSet F) : Accepted i :=
+theorem mem_validSet_accepted {i : ℕ} (h : i ∈ validSet) : Accepted i :=
   (mem_validSet.mp h).2
 
-theorem Idx.isLt {F : DagFormat} (i : Idx F) : i.val < 2 ^ F.idxBits := mem_validSet_lt i.2
+theorem Idx.isLt (i : Idx) : i.val < 2 ^ idxBits := mem_validSet_lt i.2
 
-theorem numValid_le (F : DagFormat) : numValid F ≤ 2 ^ F.idxBits := by
+theorem numValid_le : numValid ≤ 2 ^ idxBits := by
   unfold numValid validSet
   exact (Finset.card_filter_le _ _).trans (by rw [Finset.card_range])
 
@@ -130,11 +135,13 @@ def indexOf (c : Fin 32 → Fin 15) : ℕ := ofNibbles (digitFun c) 32
 theorem nibble_indexOf (c : Fin 32 → Fin 15) (k : Fin 32) : nibble (indexOf c) k = (c k).val := by
   rw [indexOf, nibble_ofNibbles _ (digitFun_lt c) 32 k k.isLt, digitFun, dif_pos k.isLt]
 
-theorem idxBits_eq : 2 ^ paperDagFormat.idxBits = 16 ^ 32 := by norm_num [paperDagFormat]
+attribute [local semireducible] hashBits blockBits pkBits msgBits securityBits maxSignatureBits keygenBudget signBudget nonceBits idxBits numCuts trials
+
+theorem idxBits_eq : 2 ^ idxBits = 16 ^ 32 := by norm_num [nonceBits, idxBits, numCuts, trials, idxCost, blockCost, signBudget, msgBits, blockBits]
 
 attribute [local irreducible] validSet tuples
 
-theorem card_validSet : (validSet paperDagFormat).card = Forest.comp 32 target := by
+theorem card_validSet : (validSet).card = Forest.comp 32 target := by
   rw [← tuples_card]
   refine Finset.card_bij' (fun i _ => digitsOf i) (fun c _ => indexOf c) ?_ ?_ ?_ ?_
   · intro i hi
@@ -176,7 +183,7 @@ theorem comp_32_target : Forest.comp 32 target = 4208816690008196405009333719945
   rw [← Forest.compTable_getD 166 32 166 le_rfl]
   decide +kernel
 
-theorem numValid_ge : 2 ^ 115 ≤ numValid paperDagFormat := by
+theorem numValid_ge : 2 ^ 115 ≤ numValid := by
   rw [numValid, card_validSet, comp_32_target]
   norm_num
 

@@ -4,6 +4,9 @@ import Submissions.UpperRiscv.LoaderProof
 
 namespace OptimalOTS.RiscvUpperProgram
 
+open OptimalOTS.Dag
+
+
 open RiscvZkvm.Rv64
 
 /-- A bounded sequence of word stores leaves each stored word at its own address. -/
@@ -35,7 +38,7 @@ theorem getMem_writeWords_index (s : MachineState) (base : Word) (words : List W
       exact ih _ _ (by simp only [List.length_cons] at bounded; omega) j (by simpa using hj)
 
 /-- HASH writes all four 64-bit slices of its answer in little-endian order. -/
-theorem writeHash_word (s : MachineState) (answer : BitVec 256) (j : ℕ) (hj : j < 4) :
+theorem writeHash_word (s : MachineState) (answer : BitVec hashBits) (j : ℕ) (hj : j < 4) :
     (Riscv.writeHash s answer).getMem (s.getReg .x12 + BitVec.ofNat 64 (8 * j)) =
       answer.extractLsb' (64 * j) 64 := by
   unfold Riscv.writeHash
@@ -43,14 +46,14 @@ theorem writeHash_word (s : MachineState) (answer : BitVec 256) (j : ℕ) (hj : 
   interval_cases j <;> rfl
 
 /-- The output buffer represents the complete hash answer. -/
-theorem writeHash_memBits (s : MachineState) (answer : BitVec 256)
+theorem writeHash_memBits (s : MachineState) (answer : BitVec hashBits)
     (aligned : alignToDword (s.getReg .x12) = s.getReg .x12) :
     MemBits (Riscv.writeHash s answer) (s.getReg .x12) answer := by
   apply memBits_of_words _ _ _ aligned
   exact writeHash_word s answer
 
 /-- HASH preserves each memory word outside its four-word output buffer. -/
-theorem writeHash_frame (s : MachineState) (answer : BitVec 256) (addr : Word)
+theorem writeHash_frame (s : MachineState) (answer : BitVec hashBits) (addr : Word)
     (disjoint : ∀ j, j < 4 → addr ≠ s.getReg .x12 + BitVec.ofNat 64 (8 * j)) :
     (Riscv.writeHash s answer).getMem addr = s.getMem addr := by
   unfold Riscv.writeHash

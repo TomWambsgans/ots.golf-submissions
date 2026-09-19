@@ -4,6 +4,9 @@ import Submissions.UpperRiscv.MachineMemory
 
 namespace OptimalOTS.RiscvUpperProgram
 
+open OptimalOTS.Dag
+
+
 open RiscvZkvm.Rv64
 
 @[simp] theorem bytesOfVector_length {n : ℕ} (v : BitVec n) :
@@ -40,39 +43,39 @@ def loaderBlank (image : Riscv.Image) : MachineState :=
 def loaderData (image : Riscv.Image) : MachineState :=
   (loaderBlank image).writeBytesAsWords Riscv.dataBase image.data
 
-def loaderPublic (image : Riscv.Image) (pk : PublicKey paperParams) : MachineState :=
+def loaderPublic (image : Riscv.Image) (pk : PublicKey) : MachineState :=
   (loaderData image).writeBytesAsWords Riscv.publicKeyBase (Riscv.bytesOfVector pk)
 
-def loaderMessage (image : Riscv.Image) (pk : PublicKey paperParams)
-    (m : Message paperParams) : MachineState :=
+def loaderMessage (image : Riscv.Image) (pk : PublicKey)
+    (m : Message) : MachineState :=
   (loaderPublic image pk).writeBytesAsWords Riscv.messageBase (Riscv.bytesOfVector m)
 
 /-- Register initialization leaves the loaded memory unchanged. -/
-theorem initialState_getMem (image : Riscv.Image) (pk : PublicKey paperParams)
-    (m : Message paperParams) (bits : List Bool) (addr : Word) :
+theorem initialState_getMem (image : Riscv.Image) (pk : PublicKey)
+    (m : Message) (bits : List Bool) (addr : Word) :
     (Riscv.initialState image pk m bits).getMem addr =
       ((loaderMessage image pk m).writeBytesAsWords Riscv.signatureBase
         (Riscv.bytesOfBits (bits.take 5504))).getMem addr := rfl
 
 /-- The public key occupies its two prescribed doublewords. -/
-theorem initialState_publicKey_word (image : Riscv.Image) (pk : PublicKey paperParams)
-    (m : Message paperParams) (bits : List Bool) (j : ℕ) (hj : j < 2) :
+theorem initialState_publicKey_word (image : Riscv.Image) (pk : PublicKey)
+    (m : Message) (bits : List Bool) (j : ℕ) (hj : j < 2) :
     (Riscv.initialState image pk m bits).getMem (Riscv.publicKeyBase + BitVec.ofNat 64 (8 * j)) =
       pk.extractLsb' (64 * j) 64 := by
   rw [initialState_getMem, getMem_load_outside, loaderMessage, getMem_load_outside, loaderPublic,
     getMem_writeBytesAsWords, bytesToWordLE_bytesOfVector]
   all_goals
-    norm_num [Riscv.bytesOfVector, Riscv.bytesOfBits, paperParams, BitVec.toNat_add] <;> omega
+    norm_num [Riscv.bytesOfVector, Riscv.bytesOfBits, hashBits, blockBits, pkBits, msgBits, securityBits, maxSignatureBits, keygenBudget, signBudget, BitVec.toNat_add] <;> omega
 
 /-- The message occupies its four prescribed doublewords. -/
-theorem initialState_message_word (image : Riscv.Image) (pk : PublicKey paperParams)
-    (m : Message paperParams) (bits : List Bool) (j : ℕ) (hj : j < 4) :
+theorem initialState_message_word (image : Riscv.Image) (pk : PublicKey)
+    (m : Message) (bits : List Bool) (j : ℕ) (hj : j < 4) :
     (Riscv.initialState image pk m bits).getMem (Riscv.messageBase + BitVec.ofNat 64 (8 * j)) =
       m.extractLsb' (64 * j) 64 := by
   rw [initialState_getMem, getMem_load_outside, loaderMessage, getMem_writeBytesAsWords,
     bytesToWordLE_bytesOfVector]
   all_goals
-    norm_num [Riscv.bytesOfVector, Riscv.bytesOfBits, paperParams, BitVec.toNat_add] <;> omega
+    norm_num [Riscv.bytesOfVector, Riscv.bytesOfBits, hashBits, blockBits, pkBits, msgBits, securityBits, maxSignatureBits, keygenBudget, signBudget, BitVec.toNat_add] <;> omega
 
 /-- Packing raw signature bytes agrees with the specification's zero-extending bit decoder. -/
 theorem bytesToWordLE_bytesOfBits (bits : List Bool) (j : ℕ) :
@@ -98,18 +101,18 @@ theorem bytesToWordLE_bytesOfBits (bits : List Bool) (j : ℕ) :
     exact BitVec.getLsbD_zero
 
 /-- Before loading the signature, all addresses above the message are still zero. -/
-theorem loaderMessage_zero (image : Riscv.Image) (pk : PublicKey paperParams)
-    (m : Message paperParams) (hdata : image.data.length ≤ 1048576)
+theorem loaderMessage_zero (image : Riscv.Image) (pk : PublicKey)
+    (m : Message) (hdata : image.data.length ≤ 1048576)
     (addr : Word) (ha : 4194352 ≤ addr.toNat) :
     (loaderMessage image pk m).getMem addr = 0 := by
   rw [loaderMessage, getMem_load_outside, loaderPublic, getMem_load_outside,
     loaderData, getMem_load_outside]
   · rfl
-  all_goals norm_num [Riscv.bytesOfVector, paperParams] <;> omega
+  all_goals norm_num [Riscv.bytesOfVector, hashBits, blockBits, pkBits, msgBits, securityBits, maxSignatureBits, keygenBudget, signBudget] <;> omega
 
 /-- The signature buffer contains its first 5504 bits, with zero padding for short inputs. -/
-theorem initialState_signature_word (image : Riscv.Image) (pk : PublicKey paperParams)
-    (m : Message paperParams) (bits : List Bool) (hdata : image.data.length ≤ 1048576)
+theorem initialState_signature_word (image : Riscv.Image) (pk : PublicKey)
+    (m : Message) (bits : List Bool) (hdata : image.data.length ≤ 1048576)
     (j : ℕ) (hj : j < 86) :
     (Riscv.initialState image pk m bits).getMem (Riscv.signatureBase + BitVec.ofNat 64 (8 * j)) =
       ofBits 64 ((bits.take 5504).drop (64 * j)) := by
@@ -153,8 +156,8 @@ theorem memBits_of_words {n : ℕ} (s : MachineState) (base : Word) (v : BitVec 
   congr 1
   omega
 
-theorem initialState_publicKey (image : Riscv.Image) (pk : PublicKey paperParams)
-    (m : Message paperParams) (bits : List Bool) :
+theorem initialState_publicKey (image : Riscv.Image) (pk : PublicKey)
+    (m : Message) (bits : List Bool) :
     MemBits (Riscv.initialState image pk m bits) Riscv.publicKeyBase pk := by
   apply memBits_of_words _ _ _ (by decide +kernel)
   intro j hj
@@ -171,8 +174,8 @@ theorem ofBits_extract {n start len : ℕ} (bits : List Bool) (contained : start
     List.getElem?_drop]
 
 /-- Every 64-bit signature chunk is available through the exact zero-extended full vector. -/
-theorem initialState_signature (image : Riscv.Image) (pk : PublicKey paperParams)
-    (m : Message paperParams) (bits : List Bool) (hdata : image.data.length ≤ 1048576) :
+theorem initialState_signature (image : Riscv.Image) (pk : PublicKey)
+    (m : Message) (bits : List Bool) (hdata : image.data.length ≤ 1048576) :
     MemBits (Riscv.initialState image pk m bits) Riscv.signatureBase
       (ofBits 5504 (bits.take 5504)) := by
   apply memBits_of_words _ _ _ (by decide +kernel)

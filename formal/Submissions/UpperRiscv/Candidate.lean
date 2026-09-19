@@ -9,17 +9,13 @@ namespace OptimalOTS.RiscvUpperForest
 open OracleComp
 
 noncomputable def submission : Riscv.Submission where
-  SecretKey := Wire.scheme.SecretKey
-  keygen := Wire.scheme.keygen
-  sign := Wire.scheme.sign
-  verify := Wire.scheme.verify
+  scheme := Wire.scheme
   image := RiscvUpperProgram.Compact.image
   fuel := fun _ _ _ => 2647
 
 theorem submission_scheme : submission.scheme = Wire.scheme := rfl
 
-theorem submission_admissible :
-    submission.scheme.Admissible (1 / 2 ^ 128) := by
+theorem submission_admissible : submission.scheme.Admissible := by
   rw [submission_scheme]
   exact Wire.admissible
 
@@ -38,13 +34,13 @@ theorem submission_implements : submission.Implements := by
 /-- Every run, accepting or rejecting, executes at most 1628 cycles: one per executed
 instruction, two for the 912-bit root hash, with the nibble checks and the chain sweeps charged
 by the path taken. -/
-theorem submission_cost : submission.CostAtMost 1628 := by
+theorem submission_cycles : submission.CyclesAtMost 1628 := by
   intro pk m bits b cycles completed
   exact (RiscvUpperProgram.Compact.image_refines pk m bits).2 b cycles completed
 
 /-- Every requirement of a scored RISC-V submission, at 1628 cycles. -/
 theorem machineCertificate : submission.Certificate 1628 :=
-  ⟨submission_admissible, submission_secure, submission_implements, submission_cost⟩
+  ⟨submission_admissible, submission_secure, submission_implements, submission_cycles⟩
 
 /--
 info: 'OptimalOTS.RiscvUpperForest.machineCertificate' depends on axioms: [propext, Classical.choice, Quot.sound]

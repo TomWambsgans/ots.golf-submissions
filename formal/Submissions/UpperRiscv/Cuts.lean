@@ -26,6 +26,9 @@ set_option linter.constructorNameAsVariable false
 
 namespace OptimalOTS
 
+open OptimalOTS.Dag
+
+
 namespace Forest
 
 open Name

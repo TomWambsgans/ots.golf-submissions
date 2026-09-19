@@ -5,6 +5,9 @@ import Submissions.UpperRiscv.LoaderProof
 
 namespace OptimalOTS.RiscvUpperProgram
 
+open OptimalOTS.Dag
+
+
 open RiscvZkvm.Rv64
 
 @[simp] theorem getReg_store (s : MachineState) (base value : Word) (r : Reg) :

@@ -8,9 +8,13 @@ open scoped Classical
 
 namespace OptimalOTS.AlgorithmAdapter
 
-variable {P : Params} {F : DagFormat}
+open OptimalOTS.Dag
 
-theorem length_encode (G : Graph P) (A : Finset (Fin G.size)) (x : G.Assignment) :
+
+attribute [local irreducible] hashBits blockBits pkBits msgBits securityBits maxSignatureBits keygenBudget signBudget nonceBits idxBits numCuts trials
+
+
+theorem length_encode (G : Graph) (A : Finset (Fin G.size)) (x : G.Assignment) :
     (G.encode A x).length = G.revealBits A := by
   unfold Graph.encode Graph.revealBits
   rw [List.length_flatMap]
@@ -20,7 +24,7 @@ theorem length_encode (G : Graph P) (A : Finset (Fin G.size)) (x : G.Assignment)
   ext v
   simp
 
-theorem signLoop_returns (S : GScheme P F) (x : S.graph.Assignment) (m : Message P) :
+theorem signLoop_returns (S : GScheme) (x : S.graph.Assignment) (m : Message) :
     ∀ k tried σ, some σ ∈ support (S.signLoop x m k tried) →
       ∃ i, σ.2 = S.graph.encode (S.sets i) x
   | 0, _, _, h => by simp [GScheme.signLoop] at h
@@ -39,28 +43,29 @@ theorem signLoop_returns (S : GScheme P F) (x : S.graph.Assignment) (m : Message
       · exact signLoop_returns S x m k _ σ h
     · simp at h
 
-theorem signatureSize (S : GScheme P F) :
-    S.toAlgorithm.SignatureSizeAtMost (F.nonceBits + (P.signatureBits - F.nonceBits)) := by
-  change ∀ (sk : S.graph.Assignment) (m : Message P) (σ : Signature F),
-    some σ ∈ support (S.sign sk m) → (encodeSignature σ).length ≤ F.nonceBits + (P.signatureBits - F.nonceBits)
+theorem signatureSize (S : GScheme) :
+    S.toAlgorithm.SignatureSizeAtMost (nonceBits + (maxSignatureBits - nonceBits)) := by
+  change ∀ (sk : S.graph.Assignment) (m : Message) (σ : Signature),
+    some σ ∈ support (S.sign sk m) → (encodeSignature σ).length ≤ nonceBits + (maxSignatureBits - nonceBits)
   intro sk m σ hσ
-  obtain ⟨i, hi⟩ := signLoop_returns S sk m F.trialLimit ∅ σ hσ
+  obtain ⟨i, hi⟩ := signLoop_returns S sk m trials ∅ σ hσ
   rw [length_encodeSignature, hi, length_encode]
-  exact Nat.add_le_add_left (S.reveal_le i) _
+  have h := S.reveal_le i
+  omega
 
-theorem rejectsOversized (S : GScheme P F) :
-    S.toAlgorithm.RejectsOversized (F.nonceBits + (P.signatureBits - F.nonceBits)) := by
-  change ∀ (pk : PublicKey P) (m : Message P) (σ : Signature F),
-    F.nonceBits + (P.signatureBits - F.nonceBits) < (encodeSignature σ).length →
+theorem rejectsOversized (S : GScheme) :
+    S.toAlgorithm.RejectsOversized (nonceBits + (maxSignatureBits - nonceBits)) := by
+  change ∀ (pk : PublicKey) (m : Message) (σ : Signature),
+    nonceBits + (maxSignatureBits - nonceBits) < (encodeSignature σ).length →
       true ∉ support (S.verify pk m σ)
   intro pk m σ hlen hmem
-  change F.nonceBits + (P.signatureBits - F.nonceBits) < (encodeSignature σ).length at hlen
+  change nonceBits + (maxSignatureBits - nonceBits) < (encodeSignature σ).length at hlen
   rw [length_encodeSignature] at hlen
   change true ∈ support (S.verify pk m σ) at hmem
   rw [GScheme.verify, support_bind] at hmem
   simp only [Set.mem_iUnion] at hmem
   obtain ⟨i, _, hmem⟩ := hmem
-  by_cases hi : i ∈ validSet F
+  by_cases hi : i ∈ validSet
   · have hwrong : σ.2.length ≠ S.graph.revealBits (S.sets ⟨i, hi⟩) := by
       have h := S.reveal_le ⟨i, hi⟩
       omega
@@ -68,14 +73,14 @@ theorem rejectsOversized (S : GScheme P F) :
     cases hmem
   · simp [hi] at hmem
 
-theorem keygenCost (S : GScheme P F) : S.toAlgorithm.KeygenCostAtMost P.keygenCost :=
+theorem keygenCost (S : GScheme) : S.toAlgorithm.KeygenCostAtMost keygenBudget :=
   AlgorithmCosts.GScheme.costAtMost_keygen S
 
-theorem signCost (S : GScheme P F) (hidx : blockCost P (P.msgBits + F.nonceBits) = 1) :
-    S.toAlgorithm.SignCostAtMost F.trialLimit :=
+theorem signCost (S : GScheme) (hidx : blockCost (msgBits + nonceBits) = 1) :
+    S.toAlgorithm.SignCostAtMost trials :=
   AlgorithmCosts.GScheme.costAtMost_sign S hidx
 
-theorem verifyCost (S : GScheme P F) (hidx : blockCost P (P.msgBits + F.nonceBits) = 1)
+theorem verifyCost (S : GScheme) (hidx : blockCost (msgBits + nonceBits) = 1)
     {v : ℕ} (hv : ∀ i, S.graph.reconstructCost (S.sets i) ≤ v) :
     S.toAlgorithm.VerifyCostAtMost (1 + v) :=
   AlgorithmCosts.GScheme.costAtMost_verify S hidx hv

@@ -5,6 +5,9 @@ import Submissions.UpperRiscv.ForestVerifier
 
 namespace OptimalOTS.RiscvUpperProgram
 
+open OptimalOTS.Dag
+
+
 open RiscvZkvm.Rv64
 
 /-- Preserving aligned words in a byte interval preserves the represented vector. -/
@@ -25,8 +28,8 @@ theorem memBits_frame_interval {width : ℕ} (s t : MachineState) (base : Word)
   exact represented i hi
 
 /-- The index query changes only its scratch input and output interval. -/
-theorem indexHash_frame (image : Riscv.Image) (pk : PublicKey paperParams)
-    (m : Message paperParams) (bits : List Bool) (answer : BitVec 256) (addr : Word)
+theorem indexHash_frame (image : Riscv.Image) (pk : PublicKey)
+    (m : Message) (bits : List Bool) (answer : BitVec hashBits) (addr : Word)
     (outside : addr.toNat < scratchBase ∨ scratchBase + 160 ≤ addr.toNat) :
     (Riscv.writeHash (indexInputState image pk m bits) answer).getMem addr =
       (Riscv.initialState image pk m bits).getMem addr := by
@@ -53,8 +56,8 @@ theorem checked_memBits (s : MachineState) {width : ℕ} (base : Word) (value : 
   omega
 
 /-- The index query preserves the transmitted public key. -/
-theorem indexHash_publicKey (image : Riscv.Image) (pk : PublicKey paperParams)
-    (m : Message paperParams) (bits : List Bool) (answer : BitVec 256) :
+theorem indexHash_publicKey (image : Riscv.Image) (pk : PublicKey)
+    (m : Message) (bits : List Bool) (answer : BitVec hashBits) :
     MemBits (Riscv.writeHash (indexInputState image pk m bits) answer) Riscv.publicKeyBase pk := by
   apply memBits_frame_interval (Riscv.initialState image pk m bits) _ _ _ (by decide)
     (by decide) (initialState_publicKey image pk m bits)
@@ -66,8 +69,8 @@ theorem indexHash_publicKey (image : Riscv.Image) (pk : PublicKey paperParams)
   omega
 
 /-- The index query preserves all 41 transmitted disclosure words. -/
-theorem indexHash_payload (image : Riscv.Image) (pk : PublicKey paperParams)
-    (m : Message paperParams) (bits : List Bool) (answer : BitVec 256)
+theorem indexHash_payload (image : Riscv.Image) (pk : PublicKey)
+    (m : Message) (bits : List Bool) (answer : BitVec hashBits)
     (hdata : image.data.length ≤ 1048576) :
     MemBits (Riscv.writeHash (indexInputState image pk m bits) answer)
       (Riscv.signatureBase + 16) (ofBits 5248 (bits.drop 128)) := by

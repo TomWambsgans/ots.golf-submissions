@@ -13,6 +13,9 @@ position stores) costs 267 cycles and the chain phase 973 cycles on every accept
 
 namespace OptimalOTS.RiscvUpperProgram.Compact
 
+open OptimalOTS.Dag
+
+
 open RiscvZkvm.Rv64 Forest Forest.Name RiscvUpperForest.ForestVerifier OracleComp
 open scoped Classical
 
@@ -21,9 +24,9 @@ theorem index_take (bits : List Bool) : ofBits 128 (bits.take 128) = ofBits 128 
     ofBits_drop_take bits (cap := 128) (start := 0) (len := 128) le_rfl
 
 /-- The specification after the accepted index and wire-length checks. -/
-noncomputable def acceptedTail (pk : PublicKey paperParams) (bits : List Bool)
-    (answer : BitVec paperParams.hashBits) : OracleComp (Spec paperParams) (Option Bool) :=
-  some <$> (if hi : (answer.setWidth paperDagFormat.idxBits).toNat ∈ validSet paperDagFormat then
+noncomputable def acceptedTail (pk : PublicKey) (bits : List Bool)
+    (answer : BitVec hashBits) : OracleComp Spec (Option Bool) :=
+  some <$> (if hi : (answer.setWidth idxBits).toNat ∈ validSet then
       if bits.length = 5376 then (do
         let y ← directReconstruct ⟨_, hi⟩ (bits.drop 128)
         return decide ((y rh.fin).setWidth 128 = pk))
@@ -31,10 +34,10 @@ noncomputable def acceptedTail (pk : PublicKey paperParams) (bits : List Bool)
     else return false)
 
 /-- The specified verifier, expressed on the first oracle answer. -/
-theorem directVerify_unfold (pk : PublicKey paperParams) (m : Message paperParams)
+theorem directVerify_unfold (pk : PublicKey) (m : Message)
     (bits : List Bool) :
     some <$> directVerify pk m bits = (do
-      let answer ← hash paperParams (m ++ ofBits 128 bits)
+      let answer ← hash (m ++ ofBits 128 bits)
       if Accepted (answer.setWidth 128).toNat ∧ bits.length = 5376 then
         acceptedTail pk bits answer
       else pure (some false)) := by
@@ -44,26 +47,26 @@ theorem directVerify_unfold (pk : PublicKey paperParams) (m : Message paperParam
   apply bind_congr_of_forall_mem_support
   intro answer _
   by_cases hi : Accepted (answer.setWidth 128).toNat
-  · have hi' : (answer.setWidth paperDagFormat.idxBits).toNat ∈ validSet paperDagFormat :=
+  · have hi' : (answer.setWidth idxBits).toNat ∈ validSet :=
       (acceptedIdx answer hi).2
     rw [dif_pos hi']
     by_cases hlen : bits.length = 5376
     · rw [if_pos hlen, if_pos ⟨hi, hlen⟩]
     · rw [if_neg hlen, if_neg (fun h => hlen h.2), pure_bind]
       rfl
-  · have hi' : ¬ (answer.setWidth paperDagFormat.idxBits).toNat ∈ validSet paperDagFormat :=
+  · have hi' : ¬ (answer.setWidth idxBits).toNat ∈ validSet :=
       fun h => hi (mem_validSet_accepted h)
     rw [dif_neg hi', if_neg (fun h => hi h.1), pure_bind]
     rfl
 
 theorem image_code : image.code = verifier := rfl
 
-theorem initial_pc (pk : PublicKey paperParams) (m : Message paperParams) (bits : List Bool) :
+theorem initial_pc (pk : PublicKey) (m : Message) (bits : List Bool) :
     (Riscv.initialState image pk m bits).pc = Riscv.codeBase := by
   simp [Riscv.initialState]
 
 set_option allowUnsafeReducibility true
-attribute [local reducible] paperParams Forest.graph
+attribute [local reducible] Forest.graph
 
 theorem verifier_length : verifier.length = 2647 := by decide +kernel
 
@@ -96,8 +99,8 @@ theorem order_eq : order = chainsFrom 0 ++
   simp only [List.append_assoc]
 
 /-- The chain phase starts at a word-aligned address, so its jump tables land on instructions. -/
-theorem decodedInput_aligned (image : Riscv.Image) (pk : PublicKey paperParams)
-    (m : Message paperParams) (bits : List Bool) (answer : BitVec 256) :
+theorem decodedInput_aligned (image : Riscv.Image) (pk : PublicKey)
+    (m : Message) (bits : List Bool) (answer : BitVec hashBits) :
     (decodedInput image pk m bits answer).pc.toNat % 4 = 0 := by
   rw [decodedInput_pc, indexAndChecks_length]
   decide
@@ -118,13 +121,13 @@ theorem lengths : indexAndChecks.length + (chains.length +
   omega
 
 /-- The accepted branch of the specification, as the reader over `order`. -/
-theorem acceptedTail_eq (pk : PublicKey paperParams) (bits : List Bool) (answer : BitVec 256)
-    (hi : (answer.setWidth 128).toNat ∈ validSet paperDagFormat) (hlen : bits.length = 5376) :
+theorem acceptedTail_eq (pk : PublicKey) (bits : List Bool) (answer : BitVec hashBits)
+    (hi : (answer.setWidth 128).toNat ∈ validSet) (hlen : bits.length = 5376) :
     acceptedTail pk bits answer =
       runNodes' ⟨_, hi⟩ (bits.drop 128) order (fun _ => 0) 0 >>= fun r =>
         pure (some (@decide ((r.1 rh.fin).setWidth 128 = pk) (Classical.propDecidable _))) := by
-  have hi' : (@BitVec.setWidth paperParams.hashBits paperDagFormat.idxBits answer).toNat ∈
-      validSet paperDagFormat := hi
+  have hi' : (@BitVec.setWidth hashBits idxBits answer).toNat ∈
+      validSet := hi
   unfold acceptedTail
   rw [dif_pos hi', if_pos hlen]
   simp only [map_eq_bind_pure_comp, bind_assoc, Function.comp_apply, pure_bind, directReconstruct,
@@ -134,7 +137,7 @@ theorem acceptedTail_eq (pk : PublicKey paperParams) (bits : List Bool) (answer 
 
 /-- The compact image computes exactly the specified verifier within its fuel, and every
 run costs at most `cycleBound` cycles. -/
-theorem image_refines (pk : PublicKey paperParams) (m : Message paperParams) (bits : List Bool) :
+theorem image_refines (pk : PublicKey) (m : Message) (bits : List Bool) :
     Riscv.Refines 2647 (Riscv.initialState image pk m bits) (some <$> directVerify pk m bits)
       cycleBound := by
   have located := Riscv.CodeAt.initial image pk m bits image_valid

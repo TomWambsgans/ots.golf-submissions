@@ -11,6 +11,9 @@ signature buffer (`CursorAt`, `CursorReady`), so that every load it makes is adm
 
 namespace OptimalOTS.RiscvUpperProgram
 
+open OptimalOTS.Dag
+
+
 open RiscvZkvm.Rv64 Forest Forest.Name RiscvUpperForest.ForestVerifier
 
 /-- The decoded positions are stored as natural 64-bit words. -/
@@ -54,8 +57,8 @@ theorem cursor_access (s : MachineState) (ready : CursorReady s) (j : ℕ) (hj :
   omega
 
 /-- The immutable input buffers and decoded chain positions used by reconstruction. -/
-structure ExecutionContext (s : MachineState) (index : Idx paperDagFormat)
-    (payload : List Bool) (pk : PublicKey paperParams) : Prop where
+structure ExecutionContext (s : MachineState) (index : Idx)
+    (payload : List Bool) (pk : PublicKey) : Prop where
   positionBase : s.getReg .x8 = BitVec.ofNat 64 positionsBase
   positions : PositionMemory s (fixedPositions index)
   payloadBits : MemBits s (Riscv.signatureBase + 16) (ofBits 5248 payload)
@@ -75,8 +78,8 @@ theorem CursorAt.ready {s : MachineState} {cursor : ℕ}
   rfl
 
 /-- A disclosed word is read from the same bit offset as the specification. -/
-theorem ExecutionContext.payload_word {s : MachineState} {index : Idx paperDagFormat}
-    {payload : List Bool} {pk : PublicKey paperParams}
+theorem ExecutionContext.payload_word {s : MachineState} {index : Idx}
+    {payload : List Bool} {pk : PublicKey}
     (context : ExecutionContext s index payload pk) (cursor : ℕ)
     (atCursor : CursorAt s cursor) (aligned : cursor % 128 = 0)
     (bounded : cursor + 128 ≤ 5248) :

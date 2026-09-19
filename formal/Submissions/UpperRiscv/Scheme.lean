@@ -16,17 +16,20 @@ open scoped Classical
 
 namespace OptimalOTS
 
+open OptimalOTS.Dag
+
+
 namespace Forest
 
 open Name
 
 /-- A fixed disclosure layout, with chain positions decoded from the index. -/
-def setsName (i : Idx paperDagFormat) : Finset Name := cutOf (fixedChoice i)
+def setsName (i : Idx) : Finset Name := cutOf (fixedChoice i)
 
 theorem setsName_injective : Function.Injective setsName := fixedCut_injective
 
 /-- The concrete scheme. -/
-def forestScheme : GScheme paperParams paperDagFormat where
+def forestScheme : GScheme where
   graph := graph
   sets := fun i => fins (setsName i)
   root_not_mem := by
@@ -50,16 +53,16 @@ def forestScheme : GScheme paperParams paperDagFormat where
     rw [graph_keygenCost]
     norm_num
 
-theorem isCut_setsName (i : Idx paperDagFormat) : IsCut (setsName i) :=
+theorem isCut_setsName (i : Idx) : IsCut (setsName i) :=
   fixedCut_isCut i
 
-theorem cost_setsName (i : Idx paperDagFormat) : ∑ n ∈ evaluatedSet (setsName i), n.cost = 185 :=
+theorem cost_setsName (i : Idx) : ∑ n ∈ evaluatedSet (setsName i), n.cost = 185 :=
   fixedCut_cost i
 
 /-- Every signature verifies in `186` compressions. -/
-theorem forestScheme_verifyCost (i : Idx paperDagFormat) : forestScheme.verifyCost i = 186 := by
-  show idxCost paperParams paperDagFormat + graph.reconstructCost (fins (setsName i)) = 186
-  have hidx : idxCost paperParams paperDagFormat = 1 := by decide
+theorem forestScheme_verifyCost (i : Idx) : forestScheme.verifyCost i = 186 := by
+  show idxCost + graph.reconstructCost (fins (setsName i)) = 186
+  have hidx : idxCost = 1 := by decide
   rw [reconstructCost_eq, hidx]
   have h := cost_setsName i
   omega

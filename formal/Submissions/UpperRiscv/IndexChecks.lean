@@ -12,6 +12,9 @@ unless the sum is `target` and the flag is set. A final check rejects wrong sign
 
 namespace OptimalOTS.RiscvUpperProgram
 
+open OptimalOTS.Dag
+
+
 open RiscvZkvm.Rv64
 
 
@@ -26,7 +29,7 @@ theorem joinWords_toNat (lo hi : Word) :
 /-- The index held in the two index registers. -/
 def rankOf (s : MachineState) : ℕ := (joinWords (s.getReg .x20) (s.getReg .x21)).toNat
 
-theorem answer_low128 (answer : BitVec 256) :
+theorem answer_low128 (answer : BitVec hashBits) :
     joinWords (answer.extractLsb' 0 64) (answer.extractLsb' 64 64) = answer.setWidth 128 := by
   rw [joinWords, BitVec.extractLsb'_append_extractLsb'_eq_extractLsb' (by decide)]
   ext i hi
@@ -607,8 +610,8 @@ theorem checked_position (s : MachineState) (k : ℕ) (hk : k < 36) :
     exact (nibbleChecks_effect s).2.2.2.2.2.1 k (by omega) hk
 
 /-- The checked state retains the actual oracle index in its two index registers. -/
-theorem checkedIndexState_hash_rank (image : Riscv.Image) (pk : PublicKey paperParams)
-    (m : Message paperParams) (bits : List Bool) (answer : BitVec 256) :
+theorem checkedIndexState_hash_rank (image : Riscv.Image) (pk : PublicKey)
+    (m : Message) (bits : List Bool) (answer : BitVec hashBits) :
     rankOf (checkedIndexState (Riscv.writeHash (indexInputState image pk m bits) answer)) =
       (answer.setWidth 128).toNat := by
   rw [checkedIndexState_rank]
@@ -626,14 +629,14 @@ theorem checkedIndexState_hash_rank (image : Riscv.Image) (pk : PublicKey paperP
   rw [low, high, answer_low128]
 
 /-- The accepted index as a valid index. -/
-def acceptedIdx (answer : BitVec 256) (hi : Accepted (answer.setWidth 128).toNat) : Idx paperDagFormat :=
+def acceptedIdx (answer : BitVec hashBits) (hi : Accepted (answer.setWidth 128).toNat) : Idx :=
   ⟨(answer.setWidth 128).toNat, mem_validSet.mpr ⟨(answer.setWidth 128).isLt, hi⟩⟩
 
-theorem acceptedIdx_val (answer : BitVec 256) (hi : Accepted (answer.setWidth 128).toNat) :
+theorem acceptedIdx_val (answer : BitVec hashBits) (hi : Accepted (answer.setWidth 128).toNat) :
     (acceptedIdx answer hi).val = (answer.setWidth 128).toNat := rfl
 
-theorem indexOf_hash (image : Riscv.Image) (pk : PublicKey paperParams)
-    (m : Message paperParams) (bits : List Bool) (answer : BitVec 256) :
+theorem indexOf_hash (image : Riscv.Image) (pk : PublicKey)
+    (m : Message) (bits : List Bool) (answer : BitVec hashBits) :
     indexOf (Riscv.writeHash (indexInputState image pk m bits) answer) =
       (answer.setWidth 128).toNat := by
   rw [← checkedIndexState_hash_rank image pk m bits answer, checkedIndexState_rank]

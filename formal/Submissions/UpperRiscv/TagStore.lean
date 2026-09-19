@@ -16,6 +16,9 @@ other than its temporary (`writeTag_register`), and the literal is exact for eve
 
 namespace OptimalOTS.RiscvUpperProgram
 
+open OptimalOTS.Dag
+
+
 open RiscvZkvm.Rv64 Forest Forest.Name RiscvUpperForest.ForestVerifier
 
 /-- A halfword store writes exactly its low sixteen bits at an aligned address. -/

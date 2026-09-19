@@ -13,6 +13,9 @@ Tree inputs are assembled in one scratch buffer.
 
 namespace OptimalOTS.RiscvUpperProgram.Compact
 
+open OptimalOTS.Dag
+
+
 open RiscvZkvm.Rv64
 
 def chainSlot (k : ℕ) : ℕ := 32 * k

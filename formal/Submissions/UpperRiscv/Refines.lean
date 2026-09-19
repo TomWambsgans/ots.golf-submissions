@@ -12,15 +12,15 @@ namespace OptimalOTS.Riscv
 
 open RiscvZkvm.Rv64 OracleComp
 
-def Refines (fuel : ℕ) (s : MachineState) (q : OracleComp (Spec paperParams) (Option Bool))
+def Refines (fuel : ℕ) (s : MachineState) (q : OracleComp Spec (Option Bool))
     (c : ℕ) : Prop :=
   observe fuel s = q ∧ ∀ b cycles, some (b, cycles) ∈ support (execute fuel s) → cycles ≤ c
 
-theorem Refines.mono {fuel : ℕ} {s : MachineState} {q : OracleComp (Spec paperParams) (Option Bool)}
+theorem Refines.mono {fuel : ℕ} {s : MachineState} {q : OracleComp Spec (Option Bool)}
     {c c' : ℕ} (h : Refines fuel s q c) (hc : c ≤ c') : Refines fuel s q c' :=
   ⟨h.1, fun b cycles hm => (h.2 b cycles hm).trans hc⟩
 
-theorem Refines.congr {fuel : ℕ} {s : MachineState} {q q' : OracleComp (Spec paperParams) (Option Bool)}
+theorem Refines.congr {fuel : ℕ} {s : MachineState} {q q' : OracleComp Spec (Option Bool)}
     {c : ℕ} (h : Refines fuel s q c) (hq : q = q') : Refines fuel s q' c := hq ▸ h
 
 theorem addCycles_zero (x : Outcome) : addCycles 0 x = x := by
@@ -51,7 +51,7 @@ theorem PureSteps.execute {n : ℕ} {s final : MachineState} (steps : PureSteps 
 
 /-- Ordinary steps add exactly one cycle each. -/
 theorem Refines.steps {n : ℕ} {s final : MachineState} (steps : PureSteps n s final)
-    {fuel : ℕ} {q : OracleComp (Spec paperParams) (Option Bool)} {c : ℕ}
+    {fuel : ℕ} {q : OracleComp Spec (Option Bool)} {c : ℕ}
     (h : Refines fuel final q c) : Refines (n + fuel) s q (n + c) := by
   refine ⟨?_, ?_⟩
   · rw [← h.1]
@@ -62,7 +62,7 @@ theorem Refines.steps {n : ℕ} {s final : MachineState} (steps : PureSteps n s 
 
 theorem Refines.linear {s : MachineState} (code : List Instr)
     (located : CodeAt s s.pc code) (ready : LinearReady s code)
-    {fuel : ℕ} {q : OracleComp (Spec paperParams) (Option Bool)} {c : ℕ}
+    {fuel : ℕ} {q : OracleComp Spec (Option Bool)} {c : ℕ}
     (h : Refines fuel (code.foldl execInstrBr s) q c) :
     Refines (code.length + fuel) s q (code.length + c) :=
   Refines.steps (linear_steps s code located ready) h
@@ -71,8 +71,8 @@ theorem execute_hash (fuel : ℕ) (s : MachineState)
     (fetch : s.code s.pc = some .ECALL) (call : s.getReg .x5 = hashCall)
     (valid : hashArgumentsValid s = true) :
     execute (fuel + 1) s = (do
-      let answer ← hash paperParams (hashInput s).2
-      addCycles (blockCost paperParams (hashInput s).1) <$> execute fuel (writeHash s answer)) := by
+      let answer ← hash (hashInput s).2
+      addCycles (blockCost (hashInput s).1) <$> execute fuel (writeHash s answer)) := by
   rw [execute, fetch]
   simp only [admittedInstruction, Bool.not_true, Bool.false_eq_true, ↓reduceIte, call,
     show hashCall ≠ 0 by decide, valid]
@@ -81,10 +81,10 @@ theorem execute_hash (fuel : ℕ) (s : MachineState)
 theorem Refines.hash {fuel : ℕ} {s : MachineState}
     (fetch : s.code s.pc = some .ECALL) (call : s.getReg .x5 = hashCall)
     (valid : hashArgumentsValid s = true)
-    {k : BitVec 256 → OracleComp (Spec paperParams) (Option Bool)} {c : ℕ}
+    {k : BitVec hashBits → OracleComp Spec (Option Bool)} {c : ℕ}
     (h : ∀ answer, Refines fuel (writeHash s answer) (k answer) c) :
-    Refines (fuel + 1) s (hash paperParams (hashInput s).2 >>= k)
-      (blockCost paperParams (hashInput s).1 + c) := by
+    Refines (fuel + 1) s (hash (hashInput s).2 >>= k)
+      (blockCost (hashInput s).1 + c) := by
   refine ⟨?_, ?_⟩
   · rw [observe_hash fuel s fetch call valid]
     exact bind_congr_of_forall_mem_support _ (fun answer _ => (h answer).1)
@@ -107,7 +107,7 @@ theorem Refines.halt {fuel : ℕ} {s : MachineState} (decision : Bool)
 theorem Refines.branch {s next : MachineState} {i : Instr}
     (fetch : s.code s.pc = some i) (admitted : admittedInstruction i = true)
     (ordinary : i ≠ .ECALL) (transition : step s = some next)
-    {fuel : ℕ} {q : OracleComp (Spec paperParams) (Option Bool)} {c : ℕ}
+    {fuel : ℕ} {q : OracleComp Spec (Option Bool)} {c : ℕ}
     (h : Refines fuel next q c) : Refines (fuel + 1) s q (c + 1) := by
   have := Refines.steps (PureSteps.cons fetch admitted ordinary transition (PureSteps.refl next)) h
   rwa [Nat.add_comm 1 fuel, Nat.add_comm 1 c] at this
