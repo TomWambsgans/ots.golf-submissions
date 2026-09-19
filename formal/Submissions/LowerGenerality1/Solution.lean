@@ -14,9 +14,12 @@ complete experiment budget divided by 2^127. Its forgery uses a different messag
 
 namespace OptimalOTS
 
+open OptimalOTS.Dag
+
+
 /-- Whole-word operations force a verification costing at least 90. -/
 theorem wholeWordVerificationLowerBound_paper :
-    WholeWordVerificationLowerBound paperParams paperDagFormat 90 := by
+    LowerBoundGenerality1 90 := by
   intro S hwords hS
   have hdis := S.disclosureBound42_of_wholeWords hwords
   by_contra hn
@@ -35,7 +38,7 @@ theorem wholeWordVerificationLowerBound_paper :
 
 /-- The exported restricted lower-track certificate. -/
 theorem Challenge.LowerGenerality1.candidate :
-    WholeWordVerificationLowerBound paperParams paperDagFormat 90 :=
+    LowerBoundGenerality1 90 :=
   wholeWordVerificationLowerBound_paper
 
 end OptimalOTS

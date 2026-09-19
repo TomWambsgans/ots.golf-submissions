@@ -21,44 +21,47 @@ open scoped Classical
 
 namespace OptimalOTS
 
-namespace NodeKind
+open OptimalOTS.Dag
 
-variable {hb N : ℕ} {len : Fin N → ℕ} {v : Fin N}
+
+namespace Dag.NodeKind
+
+variable {N : ℕ} {len : Fin N → ℕ} {v : Fin N}
 
 /-- Length of the oracle input of a node: the parent's length for a hash node, else zero. -/
-def inLen : NodeKind hb N len v → ℕ
+def inLen : NodeKind N len v → ℕ
   | hash p _ _ => len p
   | _ => 0
 
 /-- The oracle input of a node under the assignment `x`. -/
-def input : (k : NodeKind hb N len v) → ((w : Fin N) → BitVec (len w)) → BitVec k.inLen
+def input : (k : NodeKind N len v) → ((w : Fin N) → BitVec (len w)) → BitVec k.inLen
   | hash p _ _, x => x p
   | source, _ => 0
   | det _ _ _ _, _ => 0
 
 /-- The value of a node from the values `x` of the other nodes, a source value `s` and an oracle
 answer `a`. -/
-def value : NodeKind hb N len v →
-    ((w : Fin N) → BitVec (len w)) → BitVec (len v) → BitVec hb → BitVec (len v)
+def value : NodeKind N len v →
+    ((w : Fin N) → BitVec (len w)) → BitVec (len v) → BitVec hashBits → BitVec (len v)
   | source, _, s, _ => s
   | det _ _ f _, x, _, _ => f x
   | hash _ _ h, _, _, a => a.cast h.symm
 
 /-- The oracle output stored in the value of a hash node (zero for other nodes). -/
-def output : NodeKind hb N len v → BitVec (len v) → BitVec hb
+def output : NodeKind N len v → BitVec (len v) → BitVec hashBits
   | hash _ _ h, a => a.cast h
   | _, _ => 0
 
 /-- Parents precede their child. -/
-theorem lt_of_mem_parents : ∀ (k : NodeKind hb N len v) {w : Fin N}, w ∈ k.parents → w < v
+theorem lt_of_mem_parents : ∀ (k : NodeKind N len v) {w : Fin N}, w ∈ k.parents → w < v
   | source, _, h => by simp [parents] at h
   | det _ hlt _ _, _, h => hlt _ h
   | hash _ hlt _, _, h => by simp only [parents, Finset.mem_singleton] at h; exact h ▸ hlt
 
 /-- The value computed from an assignment (with oracle answers depending on the node's input)
 only depends on the parents' values. -/
-theorem value_input_congr (k : NodeKind hb N len v) (s : BitVec (len v))
-    (t : BitVec k.inLen → BitVec hb) (x y : (w : Fin N) → BitVec (len w))
+theorem value_input_congr (k : NodeKind N len v) (s : BitVec (len v))
+    (t : BitVec k.inLen → BitVec hashBits) (x y : (w : Fin N) → BitVec (len w))
     (h : ∀ w ∈ k.parents, x w = y w) :
     k.value x s (t (k.input x)) = k.value y s (t (k.input y)) := by
   cases k with
@@ -70,22 +73,24 @@ theorem value_input_congr (k : NodeKind hb N len v) (s : BitVec (len v))
 
 /-- The value computed from an assignment with a fixed oracle answer only depends on the
 parents' values. -/
-theorem value_congr (k : NodeKind hb N len v) (s : BitVec (len v)) (a : BitVec hb)
+theorem value_congr (k : NodeKind N len v) (s : BitVec (len v)) (a : BitVec hashBits)
     (x y : (w : Fin N) → BitVec (len w)) (h : ∀ w ∈ k.parents, x w = y w) :
     k.value x s a = k.value y s a :=
   value_input_congr k s (fun _ => a) x y h
 
-end NodeKind
+end Dag.NodeKind
 
-namespace Graph
+namespace Dag.Graph
 
-variable {P : Params} (G : Graph P)
+attribute [local irreducible] hashBits blockBits pkBits msgBits securityBits maxSignatureBits keygenBudget signBudget nonceBits idxBits numCuts trials
+
+variable (G : Graph)
 
 /-- Records: a value for every node and an oracle output for every node. -/
-abbrev Rec := G.Assignment × (Fin G.size → BitVec P.hashBits)
+abbrev Rec := G.Assignment × (Fin G.size → BitVec hashBits)
 
 /-- Oracle tables: for every node, a function from its oracle input to an output. -/
-abbrev Tab := (v : Fin G.size) → BitVec (G.kind v).inLen → BitVec P.hashBits
+abbrev Tab := (v : Fin G.size) → BitVec (G.kind v).inLen → BitVec hashBits
 
 /-- Value functions computing each node from an assignment. -/
 abbrev ValFn := (v : Fin G.size) → G.Assignment → BitVec (G.len v)
@@ -223,6 +228,6 @@ theorem reconTab_eq_of_visited (tg : G.Tab) (A : Finset (Fin G.size)) (a : G.Ass
       refine NodeKind.value_input_congr _ _ (tg v) _ _ fun w hw => ?_
       exact ih w ((G.kind v).lt_of_mem_parents hw) (Graph.Visited.parent hv hA hw)
 
-end Graph
+end Dag.Graph
 
 end OptimalOTS

@@ -14,9 +14,14 @@ noncomputable section
 open scoped Classical
 
 namespace OptimalOTS
+
+open OptimalOTS.Dag
+
 namespace WholeWordOrigins
 
-variable {P : Params} (G : Graph P)
+attribute [local irreducible] hashBits blockBits pkBits msgBits securityBits maxSignatureBits keygenBudget signBudget nonceBits idxBits numCuts trials
+
+variable (G : Graph)
 
 private theorem origins_hash {v : Fin G.size} (hv : (G.kind v).IsHash) :
     G.hashOrigins v = {v} := by
@@ -54,16 +59,18 @@ private theorem sum_toFinset_le {α : Type*} [DecidableEq α] (f : α → ℕ) (
 
 end WholeWordOrigins
 
-namespace Graph
+namespace Dag.Graph
 
-variable {P : Params} (G : Graph P)
+attribute [local irreducible] hashBits blockBits pkBits msgBits securityBits maxSignatureBits keygenBudget signBudget nonceBits idxBits numCuts trials
+
+variable (G : Graph)
 
 /-- Whole-word operations cannot pack a new hash origin into fewer than 128 bits. -/
 theorem card_hashOrigins_mul128_le (hwhole : G.WholeWords) (v : Fin G.size) :
     128 * (G.hashOrigins v).card ≤ G.len v := by
   induction v using WellFoundedLT.induction with
   | ind v ih =>
-    have hv := hwhole.2 v
+    have hv := hwhole v
     cases hk : G.kind v with
     | source =>
       have hn : ¬ (G.kind v).IsHash := by simp [hk, NodeKind.IsHash]
@@ -72,7 +79,7 @@ theorem card_hashOrigins_mul128_le (hwhole : G.WholeWords) (v : Fin G.size) :
     | hash p hp hl =>
       have hh : (G.kind v).IsHash := by simp [hk, NodeKind.IsHash]
       rw [WholeWordOrigins.origins_hash G hh, Finset.card_singleton, Nat.mul_one,
-        hl, hwhole.1]
+        hl, hashBits]
       omega
     | det ps hp f hf =>
       have hn : ¬ (G.kind v).IsHash := by simp [hk, NodeKind.IsHash]
@@ -93,7 +100,7 @@ theorem card_hashOrigins_mul128_le (hwhole : G.WholeWords) (v : Fin G.size) :
             exact WholeWordOrigins.sum_toFinset_le G.len ws
           _ = G.len v := hlen.symm
       · rw [hps, Finset.singleton_biUnion, WholeWordOrigins.origins_hash G hhash,
-          Finset.card_singleton, hlen]
+          Finset.card_singleton, hlen, wordBits]
 
 /-- Union over a payload only reduces the origin count relative to adding its values' counts. -/
 theorem card_disclosureOrigins_mul128_le (hwhole : G.WholeWords)
@@ -105,16 +112,16 @@ theorem card_disclosureOrigins_mul128_le (hwhole : G.WholeWords)
     _ = ∑ v ∈ A, 128 * (G.hashOrigins v).card := Finset.mul_sum _ _ _
     _ ≤ G.revealBits A := Finset.sum_le_sum fun v _ => G.card_hashOrigins_mul128_le hwhole v
 
-end Graph
+end Dag.Graph
 
 /-- The whole-word syntactic restriction implies the 42-origin bound from the payload budget. -/
-theorem Scheme.disclosureBound42_of_wholeWords (S : Scheme paperParams paperDagFormat)
+theorem Dag.Scheme.disclosureBound42_of_wholeWords (S : Scheme)
     (hwhole : S.graph.WholeWords) :
     S.DisclosureBound 42 := by
   intro i
   have ho := S.graph.card_disclosureOrigins_mul128_le hwhole (S.sets i)
   have hl := S.reveal_le i
-  change S.graph.revealBits (S.sets i) ≤ 5376 at hl
+  rw [nonceBits, maxSignatureBits] at hl
   omega
 
 end OptimalOTS

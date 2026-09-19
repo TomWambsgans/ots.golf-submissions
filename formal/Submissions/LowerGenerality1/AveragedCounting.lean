@@ -11,6 +11,9 @@ set_option maxRecDepth 4096
 
 namespace OptimalOTS.AveragedCounting
 
+open OptimalOTS.Dag
+
+
 attribute [local irreducible] Nat.choose
 
 theorem sum_fiber_hitRate_ge {ι α : Type*} [Fintype ι] [DecidableEq α]
@@ -43,10 +46,10 @@ theorem sum_fiber_hitRate_ge {ι α : Type*} [Fintype ι] [DecidableEq α]
   rw [hcards, Finset.sum_add_distrib, hcards] at h
   simpa only [Finset.sum_const, nsmul_eq_mul, mul_comm] using h
 
-theorem paper_weighted_rate_ge (S : Scheme paperParams paperDagFormat)
+theorem paper_weighted_rate_ge (S : Scheme)
     (hcount : (Finset.univ.image S.hashPattern).card ≤ Nat.choose 129 42) :
     (1 / 28 : ℝ≥0∞) ≤
-      ENNReal.ofReal (FreshSign.rate paperParams paperDagFormat paperDagFormat.trialLimit) *
+      ENNReal.ofReal (FreshSign.rate trials) *
         ∑ i, AveragedSearch.hitRate (S.samePattern i).card := by
   let M : ℝ := 2 ^ 115
   let K : ℝ := Nat.choose 129 42
@@ -71,17 +74,17 @@ theorem paper_weighted_rate_ge (S : Scheme paperParams paperDagFormat)
     linarith
   have hmul := mul_le_mul AveragedSigning.paper_rate_ge hsum'
     (div_nonneg (sq_nonneg M) hden.le)
-    (FreshSign.rate_nonneg (P := paperParams) (by norm_num [paperDagFormat]) _)
+    (FreshSign.rate_nonneg (by norm_num [nonceBits, idxBits, numCuts, trials, idxCost, blockCost, signBudget, msgBits, blockBits]) _)
   have hnum : (1 / 28 : ℝ) ≤
       (128 : ℝ) / (129 * 2 ^ 115) * (M ^ 2 / (64 * K + M)) := by
     norm_num [M, K, Nat.choose_eq_descFactorial_div_factorial,
       Nat.descFactorial, Nat.factorial]
   have h := ENNReal.ofReal_le_ofReal (hnum.trans hmul)
   rw [ENNReal.ofReal_mul
-    (FreshSign.rate_nonneg (P := paperParams) (by norm_num [paperDagFormat]) _),
+    (FreshSign.rate_nonneg (by norm_num [nonceBits, idxBits, numCuts, trials, idxCost, blockCost, signBudget, msgBits, blockBits]) _),
     ENNReal.ofReal_sum_of_nonneg (fun _ _ => div_nonneg (Nat.cast_nonneg _)
       (add_nonneg (by norm_num) (Nat.cast_nonneg _)))] at h
-  have he : ∀ i : Fin paperDagFormat.numSets,
+  have he : ∀ i : Fin numCuts,
       ENNReal.ofReal (((S.samePattern i).card : ℝ) / (64 + (S.samePattern i).card)) =
         AveragedSearch.hitRate (S.samePattern i).card := by
     intro i

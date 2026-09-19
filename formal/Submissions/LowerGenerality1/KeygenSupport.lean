@@ -9,20 +9,25 @@ noncomputable section
 open scoped Classical
 
 namespace OptimalOTS
-namespace Graph
 
-variable {P : Params} {F : DagFormat} (G : Graph P)
+open OptimalOTS.Dag
+
+namespace Dag.Graph
+
+attribute [local irreducible] hashBits blockBits pkBits msgBits securityBits maxSignatureBits keygenBudget signBudget nonceBits idxBits numCuts trials
+
+variable (G : Graph)
 
 /-- The equations at one node, using answers actually present in the cache. -/
-def CacheEqAt (c : Cache P) (x : G.Assignment) (v : Fin G.size) : Prop :=
+def CacheEqAt (c : Cache) (x : G.Assignment) (v : Fin G.size) : Prop :=
   match G.kind v with
   | .source => True
   | .det _ _ f _ => x v = f x
   | .hash p _ hl => c ⟨G.len p, x p⟩ = some ((x v).cast hl)
 
-def CacheConsistent (x : G.Assignment) (c : Cache P) : Prop := ∀ v, G.CacheEqAt c x v
+def CacheConsistent (x : G.Assignment) (c : Cache) : Prop := ∀ v, G.CacheEqAt c x v
 
-theorem CacheEqAt.mono {c d : Cache P} (hcd : Cache.Sub c d)
+theorem CacheEqAt.mono {c d : Cache} (hcd : Cache.Sub c d)
     {x : G.Assignment} {v : Fin G.size} (h : G.CacheEqAt c x v) : G.CacheEqAt d x v := by
   unfold CacheEqAt at h ⊢
   cases hk : G.kind v with
@@ -32,7 +37,7 @@ theorem CacheEqAt.mono {c d : Cache P} (hcd : Cache.Sub c d)
     simp only [hk] at h
     exact hcd _ _ h
 
-theorem CacheEqAt.congr {c : Cache P} {x y : G.Assignment} {v : Fin G.size}
+theorem CacheEqAt.congr {c : Cache} {x y : G.Assignment} {v : Fin G.size}
     (hxy : ∀ w, w ≤ v → y w = x w) (h : G.CacheEqAt c x v) : G.CacheEqAt c y v := by
   unfold CacheEqAt at h ⊢
   cases hk : G.kind v with
@@ -47,33 +52,33 @@ theorem CacheEqAt.congr {c : Cache P} {x y : G.Assignment} {v : Fin G.size}
     rw [hxy p hp.le, hxy v le_rfl]
     exact h
 
-theorem CacheConsistent.mono {c d : Cache P} (hcd : Cache.Sub c d)
+theorem CacheConsistent.mono {c d : Cache} (hcd : Cache.Sub c d)
     {x : G.Assignment} (h : G.CacheConsistent x c) : G.CacheConsistent x d :=
   fun v => CacheEqAt.mono G hcd (h v)
 
-theorem hash_support {k : ℕ} (u : BitVec k) (c : Cache P) :
-    ∀ p ∈ support (run P (hash P u) c), Cache.Sub c p.2 ∧ p.2 ⟨k, u⟩ = some p.1 := by
+theorem hash_support {k : ℕ} (u : BitVec k) (c : Cache) :
+    ∀ p ∈ support (run (hash u) c), Cache.Sub c p.2 ∧ p.2 ⟨k, u⟩ = some p.1 := by
   intro p hp
-  have hsub := sub_of_mem_support_run P (hash P u) c p hp
+  have hsub := sub_of_mem_support_run (hash u) c p hp
   refine ⟨hsub, ?_⟩
   unfold hash run at hp
   rw [simulateQ_spec_query] at hp
   rcases hc : c ⟨k, u⟩ with _ | w
-  · rw [oracleImpl_run_inr_none P hc, support_bind] at hp
+  · rw [oracleImpl_run_inr_none hc, support_bind] at hp
     simp only [Set.mem_iUnion] at hp
     obtain ⟨w, _, hp⟩ := hp
     simp only [support_pure, Set.mem_singleton_iff] at hp
     subst hp
     simp
-  · rw [oracleImpl_run_inr_some P hc, support_pure, Set.mem_singleton_iff] at hp
+  · rw [oracleImpl_run_inr_some hc, support_pure, Set.mem_singleton_iff] at hp
     subst hp
     exact hc
 
-def evalStep (z x : G.Assignment) (v : Fin G.size) : OracleComp (Spec P) G.Assignment :=
+def evalStep (z x : G.Assignment) (v : Fin G.size) : OracleComp Spec G.Assignment :=
   Function.update x v <$> G.evalNode x v (pure (z v))
 
-theorem evalStep_support (z x : G.Assignment) (v : Fin G.size) (c : Cache P) :
-    ∀ p ∈ support (run P (G.evalStep z x v) c),
+theorem evalStep_support (z x : G.Assignment) (v : Fin G.size) (c : Cache) :
+    ∀ p ∈ support (run (G.evalStep z x v) c),
       Cache.Sub c p.2 ∧ (∀ w, w ≠ v → p.1 w = x w) ∧ G.CacheEqAt p.2 p.1 v := by
   intro p hp
   unfold evalStep evalNode at hp
@@ -100,9 +105,9 @@ theorem evalStep_support (z x : G.Assignment) (v : Fin G.size) (c : Cache P) :
     rw [Function.update_of_ne hne]
     exact hw
 
-theorem evalFold_support (z : G.Assignment) (c : Cache P)
+theorem evalFold_support (z : G.Assignment) (c : Cache)
     (l : List (Fin G.size)) (hl : l.Pairwise (· < ·)) :
-    ∀ p ∈ support (run P (l.foldlM (G.evalStep z) (fun _ => 0)) c),
+    ∀ p ∈ support (run (l.foldlM (G.evalStep z) (fun _ => 0)) c),
       Cache.Sub c p.2 ∧ (∀ v ∈ l, G.CacheEqAt p.2 p.1 v) := by
   induction l using List.reverseRecOn with
   | nil =>
@@ -128,16 +133,18 @@ theorem evalFold_support (z : G.Assignment) (c : Cache P)
         (CacheEqAt.mono G hsub' (heq v hv))
     · exact ha
 
-theorem evaluate_cacheConsistent (z : G.Assignment) (c : Cache P) :
-    ∀ p ∈ support (run P (G.evaluate z) c), G.CacheConsistent p.1 p.2 := by
+theorem evaluate_cacheConsistent (z : G.Assignment) (c : Cache) :
+    ∀ p ∈ support (run (G.evaluate z) c), G.CacheConsistent p.1 p.2 := by
   intro p hp
   have h := G.evalFold_support z c _ (List.pairwise_lt_finRange _) p hp
   exact fun v => h.2 v (List.mem_finRange v)
 
-end Graph
+end Dag.Graph
 
-theorem Scheme.keygen_cacheConsistent {P : Params} {F : DagFormat} (S : Scheme P F) (c : Cache P) :
-    ∀ p ∈ support (run P S.keygen c),
+attribute [local irreducible] hashBits blockBits pkBits msgBits securityBits maxSignatureBits keygenBudget signBudget nonceBits idxBits numCuts trials
+
+theorem Dag.Scheme.keygen_cacheConsistent (S : Scheme) (c : Cache) :
+    ∀ p ∈ support (run S.keygen c),
       p.1.1 = S.publicKey p.1.2 ∧ S.graph.CacheConsistent p.1.2 p.2 := by
   intro p hp
   simp only [Scheme.keygen, Graph.keygen, run_bind, support_bind, Set.mem_iUnion] at hp

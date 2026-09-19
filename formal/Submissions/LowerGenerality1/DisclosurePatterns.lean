@@ -7,8 +7,13 @@ disclosed origin. -/
 noncomputable section
 open scoped Classical
 namespace OptimalOTS
-namespace Graph
-variable {P : Params} {F : DagFormat} (G : Graph P)
+
+open OptimalOTS.Dag
+
+namespace Dag.Graph
+attribute [local irreducible] hashBits blockBits pkBits msgBits securityBits maxSignatureBits keygenBudget signBudget nonceBits idxBits numCuts trials
+
+variable (G : Graph)
 
 /-- `HashOrigin h v` reaches hash node `h` from `v` without passing another hash. -/
 inductive HashOrigin : Fin G.size → Fin G.size → Prop
@@ -25,7 +30,7 @@ def disclosureOrigins (A : Finset (Fin G.size)) : Finset (Fin G.size) :=
   A.biUnion G.hashOrigins
 
 /-- Every disclosure set has at most `b` distinct hash origins. -/
-def _root_.OptimalOTS.Scheme.DisclosureBound (S : Scheme P F) (b : ℕ) : Prop :=
+def _root_.OptimalOTS.Dag.Scheme.DisclosureBound (S : Scheme) (b : ℕ) : Prop :=
   ∀ i, (S.graph.disclosureOrigins (S.sets i)).card ≤ b
 
 @[simp] theorem mem_hashOrigins {h v : Fin G.size} :
@@ -62,12 +67,14 @@ theorem origin_disclosed_of_visited {A : Finset (Fin G.size)} {h v : Fin G.size}
     · exact G.origin_mem_disclosure ha (HashOrigin.step hnh hp ho)
     · exact ih (Visited.parent hv ha hp)
 
-end Graph
-namespace Scheme
-variable {P : Params} {F : DagFormat} (S : Scheme P F)
+end Dag.Graph
+namespace Dag.Scheme
+attribute [local irreducible] hashBits blockBits pkBits msgBits securityBits maxSignatureBits keygenBudget signBudget nonceBits idxBits numCuts trials
+
+variable (S : Scheme)
 
 /-- Along a visited path, an undisclosed missing origin has a strictly later missing hash. -/
-theorem origin_disclosed_or_later (i j : Fin F.numSets) {v : Fin S.graph.size}
+theorem origin_disclosed_or_later (i j : Fin numCuts) {v : Fin S.graph.size}
     (hv : S.graph.Visited (S.sets i) v) :
     ∀ h, S.graph.HashOrigin h v → h ∉ S.graph.evalHash (S.sets j) →
       h ∈ S.graph.disclosureOrigins (S.sets j) ∨
@@ -96,7 +103,7 @@ theorem origin_disclosed_or_later (i j : Fin F.numSets) {v : Fin S.graph.size}
     · exact ih h (Graph.HashOrigin.step hwh hp ho) hn
 
 /-- The maximal difference of two reconstruction patterns is an origin of the second payload. -/
-theorem max_difference_disclosed (i j : Fin F.numSets) (v : Fin S.graph.size)
+theorem max_difference_disclosed (i j : Fin numCuts) (v : Fin S.graph.size)
     (hv : v ∈ S.hashPattern i \ S.hashPattern j)
     (hmax : ∀ w ∈ S.hashPattern i \ S.hashPattern j, w ≤ v) :
     v ∈ S.graph.disclosureOrigins (S.sets j) := by
@@ -114,12 +121,14 @@ theorem max_difference_disclosed (i j : Fin F.numSets) (v : Fin S.graph.size)
         fun h => hgj (Finset.mem_of_mem_erase h)⟩
     exact (not_lt_of_ge (hmax g hgp) hvg).elim
 
+attribute [local semireducible] hashBits blockBits pkBits msgBits securityBits maxSignatureBits keygenBudget signBudget nonceBits idxBits numCuts trials
+
 /-- At most 42 disclosed origins and cost at most 89 give at most `choose 129 42` patterns. -/
-theorem card_hashPattern_image_le_disclosure (S : Scheme paperParams paperDagFormat)
+theorem card_hashPattern_image_le_disclosure (S : Scheme)
     (hdis : S.DisclosureBound 42) (hcost : ∀ i, S.verifyCost i ≤ 89) :
     (Finset.univ.image S.hashPattern).card ≤ Nat.choose 129 42 := by
   let Fn := Finset.univ.image S.hashPattern
-  let idx (a : Finset (Fin S.graph.size)) : Fin paperDagFormat.numSets :=
+  let idx (a : Finset (Fin S.graph.size)) : Fin numCuts :=
     if h : ∃ i, S.hashPattern i = a then Classical.choose h else ⟨0, by decide⟩
   have hidx : ∀ a ∈ Fn, S.hashPattern (idx a) = a := by
     intro a ha
@@ -145,5 +154,5 @@ theorem card_hashPattern_image_le_disclosure (S : Scheme paperParams paperDagFor
     rw [Nat.choose_symm (show 87 ≤ 129 by omega)]
   exact h.trans_eq he
 
-end Scheme
+end Dag.Scheme
 end OptimalOTS

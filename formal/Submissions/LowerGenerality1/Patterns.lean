@@ -8,9 +8,14 @@ noncomputable section
 
 namespace OptimalOTS
 
-namespace Graph
+open OptimalOTS.Dag
 
-variable {P : Params} {F : DagFormat} (G : Graph P)
+
+namespace Dag.Graph
+
+attribute [local irreducible] hashBits blockBits pkBits msgBits securityBits maxSignatureBits keygenBudget signBudget nonceBits idxBits numCuts trials
+
+variable (G : Graph)
 
 /-- A hash node costs at least one compression. -/
 theorem one_le_nodeCost_of_isHash (v : Fin G.size) (hv : (G.kind v).IsHash) : 1 ≤ G.nodeCost v := by
@@ -37,33 +42,35 @@ theorem card_evalHash_le_reconstructCost (A : Finset (Fin G.size)) :
         G.one_le_nodeCost_of_isHash v (Finset.mem_filter.mp hv).2
     _ ≤ G.reconstructCost A := Finset.sum_le_sum_of_subset (Finset.filter_subset _ _)
 
-end Graph
+end Dag.Graph
 
-namespace Scheme
+namespace Dag.Scheme
 
-variable {P : Params} {F : DagFormat} (S : Scheme P F)
+attribute [local irreducible] hashBits blockBits pkBits msgBits securityBits maxSignatureBits keygenBudget signBudget nonceBits idxBits numCuts trials
+
+variable (S : Scheme)
 
 /-- Hash nodes reconstructed at index `i`, excluding the root common to every pattern. -/
-def hashPattern (i : Fin F.numSets) : Finset (Fin S.graph.size) :=
+def hashPattern (i : Fin numCuts) : Finset (Fin S.graph.size) :=
   (S.graph.evalHash (S.sets i)).erase S.graph.root
 
 /-- All indices with the same reconstruction pattern as `i`, including `i` itself. -/
-def samePattern (i : Fin F.numSets) : Finset (Fin F.numSets) :=
+def samePattern (i : Fin numCuts) : Finset (Fin numCuts) :=
   Finset.univ.filter fun j => S.hashPattern j = S.hashPattern i
 
-theorem root_mem_evalHash (i : Fin F.numSets) :
+theorem root_mem_evalHash (i : Fin numCuts) :
     S.graph.root ∈ S.graph.evalHash (S.sets i) := by
   simp only [Graph.evalHash, Graph.evaluated, Finset.mem_filter, Finset.mem_univ, true_and]
   exact ⟨⟨Graph.Visited.root, S.root_not_mem i⟩, S.graph.root_isHash⟩
 
-theorem hashPattern_subset (i : Fin F.numSets) :
+theorem hashPattern_subset (i : Fin numCuts) :
     S.hashPattern i ⊆ S.graph.hashNodes.erase S.graph.root := by
   intro v hv
   obtain ⟨hne, hv⟩ := Finset.mem_erase.mp hv
   exact Finset.mem_erase.mpr ⟨hne, Finset.mem_filter.mpr
     ⟨Finset.mem_univ _, (Finset.mem_filter.mp hv).2⟩⟩
 
-theorem card_hashPattern_le (i : Fin F.numSets) :
+theorem card_hashPattern_le (i : Fin numCuts) :
     (S.hashPattern i).card + 1 ≤ S.graph.reconstructCost (S.sets i) := by
   have h := S.graph.card_evalHash_le_reconstructCost (S.sets i)
   have hr := S.root_mem_evalHash i
@@ -72,7 +79,7 @@ theorem card_hashPattern_le (i : Fin F.numSets) :
   rw [Finset.card_erase_of_mem hr]
   omega
 
-theorem hashPattern_eq_iff (i j : Fin F.numSets) :
+theorem hashPattern_eq_iff (i j : Fin numCuts) :
     S.hashPattern i = S.hashPattern j ↔
       S.graph.evalHash (S.sets i) = S.graph.evalHash (S.sets j) := by
   constructor
@@ -83,7 +90,7 @@ theorem hashPattern_eq_iff (i j : Fin F.numSets) :
   · intro h
     exact congrArg (fun t => t.erase S.graph.root) h
 
-end Scheme
+end Dag.Scheme
 
 namespace PatternCounting
 
@@ -136,9 +143,9 @@ theorem choose_sum_1023_15_lt :
 
 end PatternCounting
 
-namespace Scheme
+namespace Dag.Scheme
 
-theorem card_hashPattern_image_le (S : Scheme paperParams paperDagFormat)
+theorem card_hashPattern_image_le (S : Scheme)
     (hcost : ∀ i, S.verifyCost i ≤ 17) :
     (Finset.univ.image S.hashPattern).card ≤ 2 ^ 110 := by
   have hroot : S.graph.root ∈ S.graph.hashNodes :=
@@ -159,10 +166,10 @@ theorem card_hashPattern_image_le (S : Scheme paperParams paperDagFormat)
       PatternCounting.choose_sum_1023_15_lt.le
 
 /-- At most one quarter of the indices have fewer than eight equal reconstruction patterns. -/
-theorem card_small_samePattern_mul_four_le (S : Scheme paperParams paperDagFormat)
+theorem card_small_samePattern_mul_four_le (S : Scheme)
     (hcost : ∀ i, S.verifyCost i ≤ 17) :
     (Finset.univ.filter fun i => (S.samePattern i).card < 8).card * 4 ≤
-      paperDagFormat.numSets := by
+      numCuts := by
   have h := PatternCounting.card_small_fibers_le S.hashPattern 8
   have hn := S.card_hashPattern_image_le hcost
   change (Finset.univ.filter fun i => (S.samePattern i).card < 8).card ≤
@@ -172,5 +179,5 @@ theorem card_small_samePattern_mul_four_le (S : Scheme paperParams paperDagForma
   have hnumeral : 8 * 2 ^ 110 * 4 = (2 : ℕ) ^ 115 := by norm_num
   simpa only [hnumeral] using Nat.mul_le_mul_right 4 hb
 
-end Scheme
+end Dag.Scheme
 end OptimalOTS

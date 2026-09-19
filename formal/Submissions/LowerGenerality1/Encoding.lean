@@ -6,6 +6,9 @@ noncomputable section
 open scoped Classical
 namespace OptimalOTS.Encoding
 
+open OptimalOTS.Dag
+
+
 theorem testBit_foldr (l : List Bool) (i : ℕ) :
     (l.foldr (fun (b : Bool) (acc : ℕ) => b.toNat + 2 * acc) 0).testBit i = l.getD i false := by
   induction l generalizing i with
@@ -52,7 +55,9 @@ theorem flatMap_split {n : ℕ} {β : Type} (f : Fin n → List β) (L : List (F
 
 section Generic
 
-variable {P : Params} {G : Graph P}
+attribute [local irreducible] hashBits blockBits pkBits msgBits securityBits maxSignatureBits keygenBudget signBudget nonceBits idxBits numCuts trials
+
+variable {G : Graph}
 
 theorem length_encode (A : Finset (Fin G.size)) (x : G.Assignment) :
     (G.encode A x).length = G.revealBits A := by
