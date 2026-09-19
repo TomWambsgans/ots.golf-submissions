@@ -3,7 +3,7 @@ import Mathlib
 /-!
 # Counting chain positions
 
-`comp n s` is the number of tuples `(c_1, …, c_n) ∈ {0, …, 14}^n` with sum `s` (`card_comp`).
+`comp n s` is the number of tuples `(c_1, …, c_n) ∈ {0, …, 15}^n` with sum `s` (`card_comp`).
 
 Concrete values are certified without `native_decide`: `comp` is evaluated through a
 polynomial-size table of partial sums (`compTable`), which agrees with `comp` by induction
@@ -14,13 +14,13 @@ namespace OptimalOTS
 
 namespace Forest
 
-/-- Number of `(c : Fin n → Fin 15)` with `∑ i, (c i).val = s`. -/
+/-- Number of `(c : Fin n → Fin 16)` with `∑ i, (c i).val = s`. -/
 def comp : ℕ → ℕ → ℕ
   | 0, s => if s = 0 then 1 else 0
-  | n + 1, s => ∑ v ∈ Finset.range 15, if v ≤ s then comp n (s - v) else 0
+  | n + 1, s => ∑ v ∈ Finset.range 16, if v ≤ s then comp n (s - v) else 0
 
 theorem card_comp (n s : ℕ) :
-    (Finset.univ.filter fun c : Fin n → Fin 15 => ∑ i, (c i).val = s).card = comp n s := by
+    (Finset.univ.filter fun c : Fin n → Fin 16 => ∑ i, (c i).val = s).card = comp n s := by
   induction n generalizing s with
   | zero =>
     rw [comp]
@@ -29,9 +29,9 @@ theorem card_comp (n s : ℕ) :
       simp
     · simp [Ne.symm h]
   | succ n ih =>
-    rw [comp, ← Fin.sum_univ_eq_sum_range (fun v => if v ≤ s then comp n (s - v) else 0) 15]
+    rw [comp, ← Fin.sum_univ_eq_sum_range (fun v => if v ≤ s then comp n (s - v) else 0) 16]
     simp only [← ih]
-    rw [Finset.card_filter, ← (Fin.consEquiv fun _ => Fin 15).sum_comp, Fintype.sum_prod_type]
+    rw [Finset.card_filter, ← (Fin.consEquiv fun _ => Fin 16).sum_comp, Fintype.sum_prod_type]
     refine Finset.sum_congr rfl fun v _ => ?_
     simp only [Fin.consEquiv_apply, Fin.sum_univ_succ, Fin.cons_zero, Fin.cons_succ]
     split_ifs with hv
@@ -53,7 +53,7 @@ def compTable (S : ℕ) : ℕ → List ℕ
   | 0 => 1 :: List.replicate S 0
   | n + 1 =>
     (List.range (S + 1)).map fun s =>
-      ((List.range 15).map fun v => if v ≤ s then (compTable S n).getD (s - v) 0 else 0).sum
+      ((List.range 16).map fun v => if v ≤ s then (compTable S n).getD (s - v) 0 else 0).sum
 
 theorem sum_map_range (f : ℕ → ℕ) (m : ℕ) :
     ((List.range m).map f).sum = ∑ v ∈ Finset.range m, f v := by

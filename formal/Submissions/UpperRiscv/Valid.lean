@@ -5,9 +5,9 @@ import Submissions.UpperRiscv.Count
 # Accepted indices
 
 An index is the 128-bit prefix of the hash of message and nonce. It is accepted when its 32
-nibbles are all at most 14 and sum to `target = 166`. The accepted indices are counted exactly by
-`comp 32 166`, and there are more than `2 ^ 115` of them, so the signing loop of the paper
-scheme succeeds with the same probability as before.
+nibbles sum to `target = 160`; every nibble value is allowed. The accepted indices are counted
+exactly by `comp 32 160`, and there are more than `2 ^ 115` of them, so the signing loop of the
+paper scheme succeeds with the same probability as before.
 -/
 
 namespace OptimalOTS
@@ -16,7 +16,7 @@ open OptimalOTS.Dag
 
 
 /-- The digit sum of every accepted index. -/
-def target : ℕ := 166
+def target : ℕ := 160
 
 /-- Nibble `k` of `i`. -/
 def nibble (i k : ℕ) : ℕ := i / 16 ^ k % 16
@@ -78,9 +78,8 @@ theorem ofNibbles_nibble (i : ℕ) : ∀ n, i < 16 ^ n → ofNibbles (nibble i) 
     rw [e, ih (i / 16) (by rw [pow_succ] at hi; omega)]
     omega
 
-/-- An index is accepted when its 32 nibbles are at most 14 and sum to `target`. -/
-def Accepted (i : ℕ) : Prop :=
-  (∀ k ∈ Finset.range 32, nibble i k ≤ 14) ∧ ∑ k ∈ Finset.range 32, nibble i k = target
+/-- An index is accepted when its 32 nibbles sum to `target`. -/
+def Accepted (i : ℕ) : Prop := ∑ k ∈ Finset.range 32, nibble i k = target
 
 instance : DecidablePred Accepted := fun i => by unfold Accepted; infer_instance
 
@@ -113,31 +112,29 @@ theorem numValid_le : numValid ≤ 2 ^ idxBits := by
 /-! ## Counting the accepted indices -/
 
 /-- The digit tuples counted by `comp 32 target`. -/
-def tuples : Finset (Fin 32 → Fin 15) := Finset.univ.filter fun c => ∑ k, (c k).val = target
+def tuples : Finset (Fin 32 → Fin 16) := Finset.univ.filter fun c => ∑ k, (c k).val = target
 
 theorem tuples_card : tuples.card = Forest.comp 32 target := Forest.card_comp 32 target
 
-/-- The digits of an index, reduced into `Fin 15`. -/
-def digitsOf (i : ℕ) (k : Fin 32) : Fin 15 := ⟨nibble i k % 15, Nat.mod_lt _ (by norm_num)⟩
+/-- The digits of an index. -/
+def digitsOf (i : ℕ) (k : Fin 32) : Fin 16 := ⟨nibble i k, nibble_lt i k⟩
 
 /-- The digit function of a tuple, extended by zero. -/
-def digitFun (c : Fin 32 → Fin 15) (k : ℕ) : ℕ := if h : k < 32 then (c ⟨k, h⟩).val else 0
+def digitFun (c : Fin 32 → Fin 16) (k : ℕ) : ℕ := if h : k < 32 then (c ⟨k, h⟩).val else 0
 
-theorem digitFun_lt (c : Fin 32 → Fin 15) (k : ℕ) : digitFun c k < 16 := by
+theorem digitFun_lt (c : Fin 32 → Fin 16) (k : ℕ) : digitFun c k < 16 := by
   unfold digitFun
   split_ifs with h
-  · exact (c ⟨k, h⟩).isLt.trans (by norm_num)
+  · exact (c ⟨k, h⟩).isLt
   · norm_num
 
 /-- The index with the given digits. -/
-def indexOf (c : Fin 32 → Fin 15) : ℕ := ofNibbles (digitFun c) 32
+def indexOf (c : Fin 32 → Fin 16) : ℕ := ofNibbles (digitFun c) 32
 
-theorem nibble_indexOf (c : Fin 32 → Fin 15) (k : Fin 32) : nibble (indexOf c) k = (c k).val := by
+theorem nibble_indexOf (c : Fin 32 → Fin 16) (k : Fin 32) : nibble (indexOf c) k = (c k).val := by
   rw [indexOf, nibble_ofNibbles _ (digitFun_lt c) 32 k k.isLt, digitFun, dif_pos k.isLt]
 
-attribute [local semireducible] hashBits blockBits pkBits msgBits securityBits maxSignatureBits keygenBudget signBudget nonceBits idxBits numCuts trials
-
-theorem idxBits_eq : 2 ^ idxBits = 16 ^ 32 := by norm_num [nonceBits, idxBits, numCuts, trials, idxCost, blockCost, signBudget, msgBits, blockBits]
+theorem idxBits_eq : 2 ^ idxBits = 16 ^ 32 := by norm_num [idxBits]
 
 attribute [local irreducible] validSet tuples
 
@@ -145,42 +142,37 @@ theorem card_validSet : (validSet).card = Forest.comp 32 target := by
   rw [← tuples_card]
   refine Finset.card_bij' (fun i _ => digitsOf i) (fun c _ => indexOf c) ?_ ?_ ?_ ?_
   · intro i hi
-    obtain ⟨_, small, sum⟩ := mem_validSet.mp hi
+    obtain ⟨_, sum⟩ := mem_validSet.mp hi
     simp only [tuples, Finset.mem_filter, Finset.mem_univ, true_and]
     rw [← sum, ← Fin.sum_univ_eq_sum_range]
-    refine Finset.sum_congr rfl fun k _ => ?_
-    exact Nat.mod_eq_of_lt (Nat.lt_of_le_of_lt (small k (Finset.mem_range.mpr k.isLt)) (by norm_num))
+    rfl
   · intro c hc
     simp only [tuples, Finset.mem_filter, Finset.mem_univ, true_and] at hc
-    refine mem_validSet.mpr ⟨?_, ?_, ?_⟩
+    refine mem_validSet.mpr ⟨?_, ?_⟩
     · rw [idxBits_eq]
       exact ofNibbles_lt _ (digitFun_lt c) 32
-    · intro k hk
-      rw [show k = (⟨k, Finset.mem_range.mp hk⟩ : Fin 32).val from rfl, nibble_indexOf]
-      exact Nat.le_of_lt_succ (c _).isLt
-    · rw [← hc, ← Fin.sum_univ_eq_sum_range]
+    · show ∑ k ∈ Finset.range 32, nibble (indexOf c) k = target
+      rw [← hc, ← Fin.sum_univ_eq_sum_range]
       exact Finset.sum_congr rfl fun k _ => nibble_indexOf c k
   · intro i hi
-    obtain ⟨lt, small, _⟩ := mem_validSet.mp hi
+    obtain ⟨lt, _⟩ := mem_validSet.mp hi
     show ofNibbles (digitFun (digitsOf i)) 32 = i
     have agree : ∀ k ∈ Finset.range 32, digitFun (digitsOf i) k * 16 ^ k = nibble i k * 16 ^ k := by
       intro k hk
       have hk' := Finset.mem_range.mp hk
       rw [digitFun, dif_pos hk', digitsOf]
-      simp only
-      rw [Nat.mod_eq_of_lt (Nat.lt_of_le_of_lt (small k hk) (by norm_num))]
     rw [ofNibbles, Finset.sum_congr rfl agree]
     rw [idxBits_eq] at lt
     exact ofNibbles_nibble i 32 lt
   · intro c _
     funext k
     apply Fin.ext
-    show nibble (indexOf c) k % 15 = (c k).val
-    rw [nibble_indexOf, Nat.mod_eq_of_lt (c k).isLt]
+    show nibble (indexOf c) k = (c k).val
+    rw [nibble_indexOf]
 
-theorem comp_32_target : Forest.comp 32 target = 42088166900081964050093337199455360 := by
-  show Forest.comp 32 166 = _
-  rw [← Forest.compTable_getD 166 32 166 le_rfl]
+theorem comp_32_target : Forest.comp 32 target = 44383521204130784290044027201113527 := by
+  show Forest.comp 32 160 = _
+  rw [← Forest.compTable_getD 160 32 160 le_rfl]
   decide +kernel
 
 theorem numValid_ge : 2 ^ 115 ≤ numValid := by

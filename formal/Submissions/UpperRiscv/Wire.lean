@@ -35,14 +35,13 @@ theorem reveal_positive (i : Idx) :
     0 < Forest.forestScheme.graph.revealBits (Forest.forestScheme.sets i) := by
   change 0 < Forest.graph.revealBits (Forest.fins (Forest.setsName i))
   rw [Forest.revealBits_eq]
-  have present : Forest.Name.ev 5 ∈ Forest.setsName i := by
-    change Forest.Name.ev 5 ∈ Forest.cutOf (Forest.fixedChoice i)
-    rw [Forest.ev_mem_cutOf_iff]
-    change 5 ∈ Forest.fixedE
-    decide
+  have present : Forest.chainNode 0 (Forest.fixedChoice i 0) ∈ Forest.setsName i := by
+    change _ ∈ Forest.cutOf (Forest.fixedChoice i)
+    rw [Forest.mem_cutOf_iff]
+    exact ⟨0, rfl⟩
   have bound := Finset.single_le_sum (s := Forest.setsName i)
     (f := fun n => n.len) (fun _ _ => Nat.zero_le _) present
-  have len : (Forest.Name.ev 5).len = 128 := rfl
+  have len : (Forest.chainNode 0 (Forest.fixedChoice i 0)).len = 128 := Forest.chainNode_len _ _
   rw [len] at bound
   omega
 
@@ -77,11 +76,11 @@ theorem admissible : scheme.Admissible :=
   WireAdapter.admissible RiscvUpperForest.scheme decode decode_encode canonical
     RiscvUpperForest.admissible
 
-theorem cost : scheme.VerifyCostAtMost 186 :=
-  WireAdapter.verifyCost RiscvUpperForest.scheme decode 186 RiscvUpperForest.cost
+theorem cost : scheme.VerifyCostAtMost 173 :=
+  WireAdapter.verifyCost RiscvUpperForest.scheme decode 173 RiscvUpperForest.cost
 
 /-- A complete OTS certificate on its transmitted signature bits. -/
-theorem certificate : scheme.Admissible ∧ scheme.Secure ∧ scheme.VerifyCostAtMost 186 := ⟨admissible, secure, cost⟩
+theorem certificate : scheme.Admissible ∧ scheme.Secure ∧ scheme.VerifyCostAtMost 173 := ⟨admissible, secure, cost⟩
 
 /--
 info: 'OptimalOTS.RiscvUpperForest.Wire.certificate' depends on axioms: [propext, Classical.choice, Quot.sound]

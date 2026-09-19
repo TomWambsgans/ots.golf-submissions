@@ -4,8 +4,8 @@ import Submissions.UpperRiscv.Valid
 # Graph schemes with an accepted-index predicate
 
 The paper scheme of `OptimalOTS.Dag` accepts an index when it is below `numCuts`. The
-scheme of this root accepts an index when it lies in `validSet` (its 32 nibbles are at most 14
-and sum to `target`), so that the machine reads the chain positions directly from the index.
+scheme of this root accepts an index when it lies in `validSet` (its 32 nibbles sum to
+`target`), so that the machine reads the chain positions directly from the index.
 Everything else (graph, key generation, signing loop, verification, strong-forgery experiment)
 is the paper's definition verbatim.
 -/

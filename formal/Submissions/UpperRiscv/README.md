@@ -1,7 +1,7 @@
-# RISC-V upper bound: 1628 cycles
+# RISC-V upper bound: 702 cycles
 
-A certified RV64IM verifier for a forest one-time signature: every execution, accepting or
-rejecting, terminates within 1628 cycles and computes exactly the Lean verifier's oracle
+A certified RV64IM verifier for a flat forest one-time signature: every execution, accepting or
+rejecting, terminates within 702 cycles and computes exactly the Lean verifier's oracle
 computation. `Solution.lean` exports `OptimalOTS.Challenge.UpperRiscv.submission` and
 `certificate` at the claim in `claim.txt`. The rules are on
 [ots.golf/rules](https://ots.golf/rules); the proof guide is
@@ -9,38 +9,38 @@ computation. `Solution.lean` exports `OptimalOTS.Challenge.UpperRiscv.submission
 
 ## Construction
 
-- **Scheme.** The nibble-layout forest (`ForestAlgorithm.lean`), with a complete Lean certificate
-  for admissibility, 127-bit strong security and verification within 186 compressions. The index,
-  the low 128 bits of `H(message ‖ nonce)`, is accepted when its 32 nibbles are at most 14 and sum
-  to 166 (`Valid.lean`). Chain `k < 32` is disclosed at position `14 - nibble k`, chains 32 to 35
-  at position 14 (`FixedChoice.lean`). `GScheme.lean` is the paper's graph scheme with this
-  acceptance predicate; its security and graph proofs are ported from the UpperCompressions
-  forest.
-- **Machine image.** `CompactProgram.lean` is a 2647-instruction RV64IM image: a straight-line
-  nibble sweep that checks the index and stores the chain positions; 32-byte value slots; one
-  block per active chain that copies its disclosed word and jumps into a table of 14 hash steps;
-  and a scratch buffer for the tree inputs. Nodes are numbered chain-major (`Names.lean`), so the
-  specification's reader visits each chain in the order the blocks run.
-- **Cycle count.** One cycle per executed instruction and two for the 912-bit root hash, with each
-  chain block charged by the path actually taken: 267 cycles for the index phase and 973 for the
-  chains on every accepted index, 1628 in the worst case.
+- **Scheme.** 32 hash chains of length 15 under one root (`Names.lean`), with a complete Lean
+  certificate for admissibility, 127-bit strong security and verification within 173
+  compressions. The index, the low 128 bits of `H(message ‖ nonce)`, is accepted when its 32
+  nibbles sum to 160; every nibble value is allowed (`Valid.lean`). Chain `k` is disclosed at
+  position `15 - nibble k` (`FixedChoice.lean`), so a signature is the nonce and 32 words, 4224
+  bits. A chain input is the chain's value above a 64-bit header, the slot address of the chain
+  and a level tag (`Constants.lean`); the root input is the 32 chain tops with the headers between
+  them, 6080 bits. The three input lengths (192, 6080 and the 384-bit index query) are distinct.
+- **Machine image.** `Program.lean` is a 1337-instruction RV64IM image with a 64-byte data image.
+  The index phase hashes `nonce ‖ message` in place, builds eight lane words holding
+  `8 · nibble` in 16-bit lanes, checks the nibble sum with one multiplication, and stores a jump
+  target for every chain. A chain block copies the disclosed word into its slot, writes the
+  header, loads its jump target and runs the last `nibble` of 15 two-instruction steps: store the
+  level tag, hash in place. The slots, 24 bytes apart, then form the root input.
+- **Cycle count.** One cycle per executed instruction and twelve for the 6080-bit root hash: 71
+  for the index phase, `9 + 2 · nibble` per chain (608 in all), and 23 for the root and the
+  decision.
 
 ## Proof map
 
 | File | Content |
 |---|---|
-| `TypedScheme.lean` | internal interface: oracle algorithms with a typed signature and an injective encoding |
-| `Wire.lean`, `WireAdapter.lean` | the OTS certificate transferred to `Wire.scheme : OracleAlgorithm.Scheme` on raw signature bit strings |
-| `Refines.lean` | `Riscv.Refines`: an observed oracle computation with a cycle bound |
-| `CompactVerifier.lean` | `image_refines`: the image equals the certified verifier on every input, within 1628 cycles |
-| `IndexChecks.lean`, `IndexRefines.lean`, `IndexInput.lean` | the index query, the nibble sweep and the input checks |
-| `DecodedInput.lean`, `ExecutionContext.lean`, `InitialStorage.lean` | the state left for reconstruction: input buffers, chain positions, disclosure cursor |
-| `CompactChains.lean`, `CompactLevels.lean` | the chain blocks and their cost |
-| `CompactTree.lean`, `CompactSubtrees.lean`, `CompactRoot.lean` | the group, subtree, root and decision blocks |
-| `TagStore.lean` | the tweak stores shared by all hash inputs |
-| `SweepRefines.lean` | the generic per-node segment framework |
-| `CompactBlocks.lean`, `CompactLayout.lean`, `BlockExecution.lean`, `AssemblyMacros.lean`, `CopyProof.lean`, `HashOutput.lean`, `LoaderProof.lean`, `MachineCost.lean`, `MachineMemory.lean` | machine semantics, memory layout and reusable execution rules |
-| `Candidate.lean` | the submission `{ scheme := Wire.scheme, image, fuel }` and `machineCertificate`, bundling the OTS and machine proofs |
+| `Names.lean`, `Tree.lean`, `Cuts.lean`, `FixedChoice.lean`, `Scheme.lean` | the graph, its cuts and the nibble layout |
+| `Values.lean`, `Events.lean`, `Resample.lean`, `StageB.lean`, `Assembly.lean`, `Main.lean` and the index-side files | 127-bit strong security, ported from the forest proof |
+| `Wire.lean`, `WireAdapter.lean` | the OTS certificate transferred to raw signature bit strings |
+| `ForestVerifier.lean`, `ForestVerifierProof.lean`, `Reader.lean` | the explicit interpreter and its sequential reader |
+| `Lanes.lean`, `IndexLanes.lean`, `IndexArith.lean`, `IndexPhase.lean` | the index query, the lane arithmetic and the rejections |
+| `ChainContext.lean`, `ChainPrologue.lean`, `ChainSteps.lean`, `ChainBlock.lean`, `ChainPhase.lean` | the chain blocks and their cost |
+| `RootPhase.lean` | the root hash and the decision |
+| `Verifier.lean` | `image_refines`: the image equals the certified verifier on every input, within 702 cycles |
+| `Refines.lean`, `BlockExecution.lean`, `MachineFacts.lean`, `MachineMemory.lean`, `LoaderProof.lean`, `CopyProof.lean`, `HashOutput.lean` | machine semantics, memory and reusable execution rules |
+| `Candidate.lean` | `machineCertificate`, bundling the OTS and machine proofs |
 | `Solution.lean` | the exported declarations |
 
 ## Verify
