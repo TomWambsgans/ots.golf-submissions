@@ -7,6 +7,9 @@ open scoped Classical
 
 namespace OptimalOTS.BareLower
 
+open OptimalOTS.Dag
+
+
 theorem nine_tenths : (1 - 1 / 10 : ℝ≥0∞) = 9 / 10 := by
   calc
     (1 - 1 / 10 : ℝ≥0∞) = ENNReal.ofReal ((1 : ℝ) - 1 / 10) := by
@@ -25,41 +28,43 @@ theorem expectedValue_ge_indicator {α : Type} (p : ProbComp α)
   · simpa only [if_pos h, one_mul] using hg x hx h
   · simp only [if_neg h, zero_mul, zero_le]
 
-theorem fresh_mass_paper {c : Cache paperParams} {D : Finset Query}
+theorem fresh_mass_paper {c : Cache} {D : Finset Query}
     (hc : HasSupport c D) (hD : D.card ≤ 2 ^ 22) :
-    (9 / 10 : ℝ≥0∞) ≤ E ($ᵗ BitVec paperParams.msgBits)
-      (fun m => if FreshMessage paperDagFormat c m then 1 else 0) := by
-  have hb := uniform_nonfresh_le (F := paperDagFormat) hc
-  have hb' : E ($ᵗ BitVec paperParams.msgBits)
-      (fun m => if ¬ FreshMessage paperDagFormat c m then (1 : ℝ≥0∞) else 0) ≤ 1 / 10 := by
+    (9 / 10 : ℝ≥0∞) ≤ E ($ᵗ BitVec msgBits)
+      (fun m => if FreshMessage c m then 1 else 0) := by
+  have hb := uniform_nonfresh_le hc
+  have hb' : E ($ᵗ BitVec msgBits)
+      (fun m => if ¬ FreshMessage c m then (1 : ℝ≥0∞) else 0) ≤ 1 / 10 := by
     apply hb.trans
-    calc (D.card : ℝ≥0∞) / 2 ^ paperParams.msgBits
-        ≤ ((2 ^ 22 : ℕ) : ℝ≥0∞) / 2 ^ paperParams.msgBits :=
+    calc (D.card : ℝ≥0∞) / 2 ^ msgBits
+        ≤ ((2 ^ 22 : ℕ) : ℝ≥0∞) / 2 ^ msgBits :=
           ENNReal.div_le_div_right (by exact_mod_cast hD) _
       _ ≤ _ := by
         apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
-        norm_num [ENNReal.toReal_div, paperParams]
-  have h := uniform_complement_ge paperParams.msgBits (fun m => ¬ FreshMessage paperDagFormat c m) _ hb'
+        norm_num [ENNReal.toReal_div, hashBits, blockBits, pkBits, msgBits, securityBits, maxSignatureBits, keygenBudget, signBudget]
+  have h := uniform_complement_ge msgBits (fun m => ¬ FreshMessage c m) _ hb'
   simpa only [not_not, nine_tenths] using h
 
-theorem fresh_new_mass_paper {c : Cache paperParams} {D : Finset Query}
-    (hc : HasSupport c D) (hD : D.card ≤ 2 ^ 22) (m₁ : Message paperParams) :
-    (9 / 10 : ℝ≥0∞) ≤ E ($ᵗ BitVec paperParams.msgBits)
-      (fun m => if FreshMessage paperDagFormat c m ∧ m ≠ m₁ then 1 else 0) := by
-  have h := uniform_fresh_ne_ge (F := paperDagFormat) hc m₁
+theorem fresh_new_mass_paper {c : Cache} {D : Finset Query}
+    (hc : HasSupport c D) (hD : D.card ≤ 2 ^ 22) (m₁ : Message) :
+    (9 / 10 : ℝ≥0∞) ≤ E ($ᵗ BitVec msgBits)
+      (fun m => if FreshMessage c m ∧ m ≠ m₁ then 1 else 0) := by
+  have h := uniform_fresh_ne_ge hc m₁
   apply le_trans _ h
-  have hb : ((D.card + 1 : ℕ) : ℝ≥0∞) / 2 ^ paperParams.msgBits ≤ 1 / 10 := by
-    calc ((D.card + 1 : ℕ) : ℝ≥0∞) / 2 ^ paperParams.msgBits
-        ≤ ((2 ^ 22 + 1 : ℕ) : ℝ≥0∞) / 2 ^ paperParams.msgBits :=
+  have hb : ((D.card + 1 : ℕ) : ℝ≥0∞) / 2 ^ msgBits ≤ 1 / 10 := by
+    calc ((D.card + 1 : ℕ) : ℝ≥0∞) / 2 ^ msgBits
+        ≤ ((2 ^ 22 + 1 : ℕ) : ℝ≥0∞) / 2 ^ msgBits :=
           ENNReal.div_le_div_right (by exact_mod_cast Nat.add_le_add_right hD 1) _
       _ ≤ _ := by
         apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
-        norm_num [ENNReal.toReal_div, paperParams]
+        norm_num [ENNReal.toReal_div, hashBits, blockBits, pkBits, msgBits, securityBits, maxSignatureBits, keygenBudget, signBudget]
   calc (9 / 10 : ℝ≥0∞) = 1 - 1 / 10 := nine_tenths.symm
     _ ≤ _ := tsub_le_tsub_left hb 1
 
-theorem probTrue_eq_expectation (P : Params) (oa : OracleComp (Spec P) Bool) :
-    probTrue P oa = E (run P oa ∅) (fun p => if p.1 = true then 1 else 0) := by
+attribute [local irreducible] hashBits blockBits pkBits msgBits securityBits maxSignatureBits keygenBudget signBudget nonceBits idxBits numCuts trials
+
+theorem probTrue_eq_expectation (oa : OracleComp Spec Bool) :
+    probTrue oa = E (run oa ∅) (fun p => if p.1 = true then 1 else 0) := by
   unfold probTrue
   rw [run'_eq, ← probEvent_eq_eq_probOutput, probEvent_map]
   exact (expectedValue_ite_one _ _).symm

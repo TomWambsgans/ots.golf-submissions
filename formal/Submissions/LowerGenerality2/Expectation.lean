@@ -11,6 +11,9 @@ open scoped Classical
 
 namespace OptimalOTS
 
+open OptimalOTS.Dag
+
+
 /-- Expected value of `g` over a probabilistic computation. -/
 abbrev E {α : Type} (p : ProbComp α) (g : α → ℝ≥0∞) : ℝ≥0∞ := expectedValue p g
 

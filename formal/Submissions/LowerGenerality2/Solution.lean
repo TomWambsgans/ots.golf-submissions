@@ -12,8 +12,11 @@ cost divided by 2^127 is smaller. No separation or tagging hypothesis is imposed
 
 namespace OptimalOTS
 
+open OptimalOTS.Dag
+
+
 /-- Every secure scheme in the bare model has a verification costing at least 18. -/
-theorem verificationLowerBound_paper : VerificationLowerBound paperParams paperDagFormat 18 := by
+theorem verificationLowerBound_paper : LowerBoundGenerality2 18 := by
   intro S hS
   by_contra hn
   push Not at hn
@@ -29,7 +32,7 @@ theorem verificationLowerBound_paper : VerificationLowerBound paperParams paperD
   exact (not_lt_of_ge hsuccess) (hsec.trans PatternAttack.budget_lt)
 
 /-- The exported lower-track certificate, with exactly the rendered challenge statement. -/
-theorem Challenge.LowerGenerality2.candidate : VerificationLowerBound paperParams paperDagFormat 18 :=
+theorem Challenge.LowerGenerality2.candidate : LowerBoundGenerality2 18 :=
   verificationLowerBound_paper
 
 end OptimalOTS
