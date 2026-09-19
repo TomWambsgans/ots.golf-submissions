@@ -47,15 +47,15 @@ theorem checkedBranch_refines (s : MachineState) (fuel : ℕ)
     exact (Riscv.Refines.branch fetch (by decide) (by decide) transition rej).mono (by omega)
 
 theorem capped_length_eq (bits : List Bool) :
-    (5376 : Word) ^^^ BitVec.ofNat 64 (min bits.length 5377) = 0#64 ↔ bits.length = 5376 := by
+    (5376 : Word) ^^^ BitVec.ofNat 64 (min bits.length 5505) = 0#64 ↔ bits.length = 5376 := by
   rw [BitVec.xor_eq_zero_iff]
   constructor
   · intro h
     have hn := congrArg BitVec.toNat h
     simp only [BitVec.toNat_ofNat] at hn
-    have bound : min bits.length 5377 < 2 ^ 64 := by omega
+    have bound : min bits.length 5505 < 2 ^ 64 := by omega
     rw [Nat.mod_eq_of_lt bound] at hn
-    change 5376 = min bits.length 5377 at hn
+    change 5376 = min bits.length 5505 at hn
     omega
   · intro h
     simp [h]
@@ -177,7 +177,7 @@ theorem indexAndChecks_refines (image : Riscv.Image) (pk : PublicKey paperParams
       change (Riscv.writeHash _ _).code = _
       simp [Riscv.writeHash]
     have scratch : s.getReg .x19 = BitVec.ofNat 64 scratchBase := rfl
-    have size : s.getReg .x13 = BitVec.ofNat 64 (min bits.length 5377) := rfl
+    have size : s.getReg .x13 = BitVec.ofNat 64 (min bits.length 5505) := rfl
     have index := indexOf_hash image pk m bits answer
     change indexOf s = (answer.setWidth 128).toNat at index
     have hr := indexChecks_refines s (fuel - 24) scratch

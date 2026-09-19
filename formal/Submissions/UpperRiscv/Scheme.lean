@@ -39,9 +39,9 @@ def forestScheme : GScheme paperParams paperDagFormat where
     exact (no_hidden_source_iff (setsName i)).mpr (fixedCut_isCut i).covers
   reveal_le := by
     intro i
-    show graph.revealBits (fins (setsName i)) ≤ 5248
+    show graph.revealBits (fins (setsName i)) ≤ 5376
     rw [revealBits_eq]
-    change ∑ n ∈ cutOf (fixedChoice i), n.len ≤ 5248
+    change ∑ n ∈ cutOf (fixedChoice i), n.len ≤ 5376
     rw [Finset.sum_const_nat fun n hn => (fixedCut_isCut i).values n hn]
     have := fixedCut_card i
     omega

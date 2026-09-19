@@ -26,7 +26,7 @@ theorem indexInput_registers (image : Riscv.Image) (pk : PublicKey paperParams)
     let s := indexInputState image pk m bits
     s.getReg .x5 = 1 ∧ s.getReg .x10 = BitVec.ofNat 64 scratchBase ∧
     s.getReg .x11 = 384 ∧ s.getReg .x12 = BitVec.ofNat 64 (scratchBase + 128) ∧
-    s.getReg .x13 = BitVec.ofNat 64 (min bits.length 5377) := by
+    s.getReg .x13 = BitVec.ofNat 64 (min bits.length 5505) := by
   exact ⟨rfl, rfl, rfl, rfl, rfl⟩
 
 /-- The first half of the input is the nonce; the second is the message. -/

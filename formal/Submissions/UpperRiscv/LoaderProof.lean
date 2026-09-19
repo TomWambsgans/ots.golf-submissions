@@ -52,7 +52,7 @@ theorem initialState_getMem (image : Riscv.Image) (pk : PublicKey paperParams)
     (m : Message paperParams) (bits : List Bool) (addr : Word) :
     (Riscv.initialState image pk m bits).getMem addr =
       ((loaderMessage image pk m).writeBytesAsWords Riscv.signatureBase
-        (Riscv.bytesOfBits (bits.take 5376))).getMem addr := rfl
+        (Riscv.bytesOfBits (bits.take 5504))).getMem addr := rfl
 
 /-- The public key occupies its two prescribed doublewords. -/
 theorem initialState_publicKey_word (image : Riscv.Image) (pk : PublicKey paperParams)
@@ -107,17 +107,17 @@ theorem loaderMessage_zero (image : Riscv.Image) (pk : PublicKey paperParams)
   · rfl
   all_goals norm_num [Riscv.bytesOfVector, paperParams] <;> omega
 
-/-- The signature buffer contains its first 5376 bits, with zero padding for short inputs. -/
+/-- The signature buffer contains its first 5504 bits, with zero padding for short inputs. -/
 theorem initialState_signature_word (image : Riscv.Image) (pk : PublicKey paperParams)
     (m : Message paperParams) (bits : List Bool) (hdata : image.data.length ≤ 1048576)
-    (j : ℕ) (hj : j < 84) :
+    (j : ℕ) (hj : j < 86) :
     (Riscv.initialState image pk m bits).getMem (Riscv.signatureBase + BitVec.ofNat 64 (8 * j)) =
-      ofBits 64 ((bits.take 5376).drop (64 * j)) := by
+      ofBits 64 ((bits.take 5504).drop (64 * j)) := by
   rw [initialState_getMem]
-  by_cases hb : j < ((Riscv.bytesOfBits (bits.take 5376)).length + 7) / 8
+  by_cases hb : j < ((Riscv.bytesOfBits (bits.take 5504)).length + 7) / 8
   · rw [getMem_writeBytesAsWords _ _ _ (by simp; omega) j hb, bytesToWordLE_bytesOfBits]
   · rw [getMem_load_outside, loaderMessage_zero _ _ _ hdata]
-    · have hlen : (bits.take 5376).length ≤ 64 * j := by simp only [bytesOfBits_length] at hb; omega
+    · have hlen : (bits.take 5504).length ≤ 64 * j := by simp only [bytesOfBits_length] at hb; omega
       rw [List.drop_eq_nil_iff.mpr hlen]
       rfl
     all_goals
@@ -174,7 +174,7 @@ theorem ofBits_extract {n start len : ℕ} (bits : List Bool) (contained : start
 theorem initialState_signature (image : Riscv.Image) (pk : PublicKey paperParams)
     (m : Message paperParams) (bits : List Bool) (hdata : image.data.length ≤ 1048576) :
     MemBits (Riscv.initialState image pk m bits) Riscv.signatureBase
-      (ofBits 5376 (bits.take 5376)) := by
+      (ofBits 5504 (bits.take 5504)) := by
   apply memBits_of_words _ _ _ (by decide +kernel)
   intro j hj
   rw [initialState_signature_word image pk m bits hdata j hj, ofBits_extract _ (by omega)]
