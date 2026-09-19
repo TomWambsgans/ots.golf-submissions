@@ -1,34 +1,29 @@
 import OptimalOTS.Dag
 import Submissions.UpperRiscv.Semantics
+import Submissions.UpperRiscv.Constants
 
 /-!
 # The concrete scheme: nodes and the computation graph
 
-The scheme of Section 8 of the paper hangs 63 hash chains of length 14 under a tree with 21
-group digests, 7 subtree digests and a root.  Every hash node outputs 256 bits; the 128-bit values
-of the paper are separate deterministic truncation nodes, and the inputs of the grouping hashes
-are separate concatenation nodes.
+The scheme has 32 hash chains of length 15 and a root over the 32 chain tops. Every hash node
+outputs 256 bits; the 128-bit values are separate deterministic truncation nodes, and the inputs
+of the hash nodes are separate deterministic nodes.
 
 Nodes are named by `Name`; `Name.fin` embeds the names into `Fin N` in a topological order
-(parents first, chain by chain, then the tree) and `ofFin` is its inverse.
+(chain by chain, then the root) and `ofFin` is its inverse.
 
-The random oracle has no labels, so the scheme separates its hash nodes itself: the input of the
-hash node `h` starts with the 16-bit tweak `tw h` (the index of `h`), in the high bits, i.e. it is
-`tw h ++ payload`.  The inputs are deterministic nodes of their own.
+The random oracle has no labels, so the scheme separates its hash nodes itself. The input of the
+chain hash `ch k t` is `c_{k,t} ++ hdr k t`: the 64-bit header `hdr k t` (the slot address of
+chain `k` and the level tag of `t`, `Flat.hdrNat`) occupies the LOW bits, as it precedes the value
+in the machine's memory. The root input is the only input of 6080 bits.
 
 | name | meaning | length | kind |
 |---|---|---|---|
 | `src k` | source `z_k = c_{k,0}` | 128 | source |
-| `ci k t` | `tw (ch k t) ++ c_{k,t}`, the input of `ch k t` | 144 | det, parent `prev k t` |
+| `ci k t` | `c_{k,t} ++ hdr k t`, the input of `ch k t` | 192 | det, parent `prev k t` |
 | `ch k t` | `H(ci k t)` | 256 | hash |
-| `cv k t` | `c_{k,t+1}` = first 128 bits of `ch k t` | 128 | det |
-| `gc j` | `tw (gh j) ++ c_{3j,14} ‖ c_{3j+1,14} ‖ c_{3j+2,14}` | 400 | det |
-| `gh j` | `H(gc j)` | 256 | hash |
-| `gv j` | `g_j` = first 128 bits of `gh j` | 128 | det |
-| `ec l` | `tw (eh l) ++ g_{3l} ‖ g_{3l+1} ‖ g_{3l+2}` | 400 | det |
-| `eh l` | `H(ec l)` | 256 | hash |
-| `ev l` | `e_l` = first 128 bits of `eh l` | 128 | det |
-| `rc` | `tw rh ++ e_0 ‖ ⋯ ‖ e_6` | 912 | det |
+| `cv k t` | `c_{k,t+1}` = low 128 bits of `ch k t` | 128 | det |
+| `rc` | `c_{31,15} ‖ h_31 ‖ ⋯ ‖ h_1 ‖ c_{0,15}` (`rootCat`) | 6080 | det |
 | `rh` | the root `H(rc)` | 256 | hash |
 -/
 
@@ -47,40 +42,28 @@ namespace Forest
 
 /-- Node names. -/
 inductive Name where
-  | src (k : Fin 63)
-  | ci (k : Fin 63) (t : Fin 14)
-  | ch (k : Fin 63) (t : Fin 14)
-  | cv (k : Fin 63) (t : Fin 14)
-  | gc (j : Fin 21)
-  | gh (j : Fin 21)
-  | gv (j : Fin 21)
-  | ec (l : Fin 7)
-  | eh (l : Fin 7)
-  | ev (l : Fin 7)
+  | src (k : Fin 32)
+  | ci (k : Fin 32) (t : Fin 15)
+  | ch (k : Fin 32) (t : Fin 15)
+  | cv (k : Fin 32) (t : Fin 15)
   | rc
   | rh
   deriving DecidableEq
 
 /-- Number of nodes. -/
-def N : ℕ := 2795
+def N : ℕ := 1474
 
 namespace Name
 
 /-- Topological index. Chains come first, chain by chain: chain `k` occupies the indices
-`43 k, …, 43 k + 42` (its source, then input, hash and value of each of its 14 levels). -/
+`46 k, …, 46 k + 45` (its source, then input, hash and value of each of its 15 levels). -/
 def idx : Name → ℕ
-  | src k => 43 * k
-  | ci k t => 43 * k + 1 + 3 * t
-  | ch k t => 43 * k + 2 + 3 * t
-  | cv k t => 43 * k + 3 + 3 * t
-  | gc j => 2709 + j
-  | gh j => 2730 + j
-  | gv j => 2751 + j
-  | ec l => 2772 + l
-  | eh l => 2779 + l
-  | ev l => 2786 + l
-  | rc => 2793
-  | rh => 2794
+  | src k => 46 * k
+  | ci k t => 46 * k + 1 + 3 * t
+  | ch k t => 46 * k + 2 + 3 * t
+  | cv k t => 46 * k + 3 + 3 * t
+  | rc => 1472
+  | rh => 1473
 
 theorem idx_lt (n : Name) : n.idx < N := by
   cases n <;> simp only [idx, N] <;> omega
@@ -91,49 +74,29 @@ def fin (n : Name) : Fin N := ⟨n.idx, n.idx_lt⟩
 /-- Output length. -/
 def len : Name → ℕ
   | src _ => 128
-  | ci _ _ => 144
+  | ci _ _ => 192
   | ch _ _ => 256
   | cv _ _ => 128
-  | gc _ => 400
-  | gh _ => 256
-  | gv _ => 128
-  | ec _ => 400
-  | eh _ => 256
-  | ev _ => 128
-  | rc => 912
+  | rc => 6080
   | rh => 256
 
-/-- Query cost of a node: one compression for every hash node except the root, which costs two. -/
+/-- Query cost of a node: one compression for every chain hash, twelve for the root. -/
 def cost : Name → ℕ
   | ch _ _ => 1
-  | gh _ => 1
-  | eh _ => 1
-  | rh => 2
+  | rh => 12
   | _ => 0
 
 /-- The value node feeding the chain hash `ch k t` (through its input `ci k t`): the source for
 `t = 0`, else `cv k (t-1)`. -/
-def prev (k : Fin 63) (t : Fin 14) : Name :=
+def prev (k : Fin 32) (t : Fin 15) : Name :=
   if h : t.val = 0 then src k else cv k ⟨t.val - 1, by omega⟩
-
-/-- The `a`-th chain of group `j`. -/
-def chainOf (j : Fin 21) (a : Fin 3) : Fin 63 := ⟨3 * j + a, by omega⟩
-
-/-- The `a`-th group of subtree `l`. -/
-def groupOf (l : Fin 7) (a : Fin 3) : Fin 21 := ⟨3 * l + a, by omega⟩
 
 /-- The unique node reading the value of a node (`none` for the root). -/
 def child : Name → Option Name
   | src k => some (ci k 0)
   | ci k t => some (ch k t)
   | ch k t => some (cv k t)
-  | cv k t => if h : t.val = 13 then some (gc ⟨k / 3, by omega⟩) else some (ci k ⟨t + 1, by omega⟩)
-  | gc j => some (gh j)
-  | gh j => some (gv j)
-  | gv j => some (ec ⟨j / 3, by omega⟩)
-  | ec l => some (eh l)
-  | eh l => some (ev l)
-  | ev _ => some rc
+  | cv k t => if h : t.val = 14 then some rc else some (ci k ⟨t + 1, by omega⟩)
   | rc => some rh
   | rh => none
 
@@ -143,65 +106,51 @@ def parents : Name → Finset Name
   | ci k t => {prev k t}
   | ch k t => {ci k t}
   | cv k t => {ch k t}
-  | gc j => {cv (chainOf j 0) 13, cv (chainOf j 1) 13, cv (chainOf j 2) 13}
-  | gh j => {gc j}
-  | gv j => {gh j}
-  | ec l => {gv (groupOf l 0), gv (groupOf l 1), gv (groupOf l 2)}
-  | eh l => {ec l}
-  | ev l => {eh l}
-  | rc => Finset.univ.image ev
+  | rc => Finset.univ.image fun k => cv k 14
   | rh => {rc}
 
 theorem mem_parents_iff (m n : Name) : m ∈ parents n ↔ child m = some n := by
   cases n <;> cases m <;>
-    simp only [parents, child, prev, chainOf, groupOf, Finset.mem_insert, Finset.mem_singleton,
+    simp only [parents, child, prev, Finset.mem_insert, Finset.mem_singleton,
       Finset.mem_image, Finset.mem_univ, true_and, Finset.notMem_empty, Option.some.injEq,
-      reduceCtorEq, Name.ci.injEq, Name.ch.injEq, Name.cv.injEq, Name.gc.injEq, Name.gh.injEq,
-      Name.gv.injEq, Name.ec.injEq, Name.eh.injEq, Name.ev.injEq, Fin.ext_iff,
+      reduceCtorEq, Name.ci.injEq, Name.ch.injEq, Name.cv.injEq, Fin.ext_iff,
       Fin.val_zero, iff_true, iff_false, false_iff, or_false, exists_false] <;>
     (try split_ifs) <;>
     (try simp only [Option.some.injEq, reduceCtorEq, Name.src.injEq, Name.ci.injEq,
-      Name.cv.injEq, Name.gc.injEq, Fin.ext_iff, iff_false, false_iff, not_false_eq_true]) <;>
-    first | omega | exact ⟨_, rfl⟩
+      Name.cv.injEq, Fin.ext_iff, iff_false, false_iff, not_false_eq_true]) <;>
+    first | omega | exact ⟨_, rfl⟩ | (constructor <;> intro h <;> first | trivial | omega | (obtain ⟨_, h1, h2⟩ := h; omega) | exact ⟨_, rfl, by omega⟩)
 
 theorem idx_lt_of_mem_parents {m n : Name} (h : m ∈ parents n) : m.idx < n.idx := by
   rw [mem_parents_iff] at h
   cases m <;> simp only [child, Option.some.injEq, reduceCtorEq] at h <;>
-    (try split_ifs at h) <;> (try simp only [Option.some.injEq] at h) <;> subst h <;>
+    (try split_ifs at h) <;> (try simp only [Option.some.injEq, reduceCtorEq] at h) <;> subst h <;>
     simp only [idx, Fin.val_zero] <;> omega
 
 end Name
 
 /-- The inverse of `Name.fin`. -/
 def ofFin (v : Fin N) : Name :=
-  if h₁ : v.val < 2709 then
-    let k : Fin 63 := ⟨v.val / 43, by omega⟩
-    let r := v.val % 43
+  if h₁ : v.val < 1472 then
+    let k : Fin 32 := ⟨v.val / 46, by omega⟩
+    let r := v.val % 46
     if h₂ : r = 0 then .src k
     else
-      let t : Fin 14 := ⟨(r - 1) / 3, by omega⟩
+      let t : Fin 15 := ⟨(r - 1) / 3, by omega⟩
       if h₃ : (r - 1) % 3 = 0 then .ci k t
       else if h₃' : (r - 1) % 3 = 1 then .ch k t
       else .cv k t
-  else if h₄ : v.val < 2730 then .gc ⟨v.val - 2709, by omega⟩
-  else if h₅ : v.val < 2751 then .gh ⟨v.val - 2730, by omega⟩
-  else if h₆ : v.val < 2772 then .gv ⟨v.val - 2751, by omega⟩
-  else if h₇ : v.val < 2779 then .ec ⟨v.val - 2772, by omega⟩
-  else if h₈ : v.val < 2786 then .eh ⟨v.val - 2779, by omega⟩
-  else if h₉ : v.val < 2793 then .ev ⟨v.val - 2786, by omega⟩
-  else if h₁₀ : v.val < 2794 then .rc
+  else if h₁₀ : v.val < 1473 then .rc
   else .rh
 
 theorem Name.idx_injective : Function.Injective Name.idx := by
   intro m n h
   cases m <;> cases n <;> simp only [Name.idx] at h <;>
-    (try simp only [Name.src.injEq, Name.ci.injEq, Name.ch.injEq, Name.cv.injEq, Name.gc.injEq,
-      Name.gh.injEq, Name.gv.injEq, Name.ec.injEq, Name.eh.injEq, Name.ev.injEq, Fin.ext_iff,
+    (try simp only [Name.src.injEq, Name.ci.injEq, Name.ch.injEq, Name.cv.injEq, Fin.ext_iff,
       reduceCtorEq]) <;>
     omega
 
 theorem fin_ofFin_aux (v : Fin N) : (ofFin v).fin = v := by
-  have hv : v.val < 2795 := v.isLt
+  have hv : v.val < 1474 := v.isLt
   rw [Fin.ext_iff]
   simp only [ofFin]
   split_ifs <;> simp only [Name.fin, Name.idx] <;> omega
@@ -221,8 +170,8 @@ def nameEquiv : Name ≃ Fin N where
 theorem Name.fin_injective : Function.Injective Name.fin := nameEquiv.injective
 
 /-- The finite sum type behind `Name`. -/
-abbrev NameSum := Fin 63 ⊕ (Fin 63 × Fin 14) ⊕ (Fin 63 × Fin 14) ⊕ (Fin 63 × Fin 14) ⊕
-  Fin 21 ⊕ Fin 21 ⊕ Fin 21 ⊕ Fin 7 ⊕ Fin 7 ⊕ Fin 7 ⊕ Unit ⊕ Unit
+abbrev NameSum := Fin 32 ⊕ (Fin 32 × Fin 15) ⊕ (Fin 32 × Fin 15) ⊕ (Fin 32 × Fin 15) ⊕
+  Unit ⊕ Unit
 
 /-- `Name` as a sum type. -/
 def Name.toSum : Name → NameSum
@@ -230,28 +179,16 @@ def Name.toSum : Name → NameSum
   | ci k t => .inr (.inl (k, t))
   | ch k t => .inr (.inr (.inl (k, t)))
   | cv k t => .inr (.inr (.inr (.inl (k, t))))
-  | gc j => .inr (.inr (.inr (.inr (.inl j))))
-  | gh j => .inr (.inr (.inr (.inr (.inr (.inl j)))))
-  | gv j => .inr (.inr (.inr (.inr (.inr (.inr (.inl j))))))
-  | ec l => .inr (.inr (.inr (.inr (.inr (.inr (.inr (.inl l)))))))
-  | eh l => .inr (.inr (.inr (.inr (.inr (.inr (.inr (.inr (.inl l))))))))
-  | ev l => .inr (.inr (.inr (.inr (.inr (.inr (.inr (.inr (.inr (.inl l)))))))))
-  | rc => .inr (.inr (.inr (.inr (.inr (.inr (.inr (.inr (.inr (.inr (.inl ()))))))))))
-  | rh => .inr (.inr (.inr (.inr (.inr (.inr (.inr (.inr (.inr (.inr (.inr ()))))))))))
+  | rc => .inr (.inr (.inr (.inr (.inl ()))))
+  | rh => .inr (.inr (.inr (.inr (.inr ()))))
 
 def Name.ofSum : NameSum → Name
   | .inl k => src k
   | .inr (.inl (k, t)) => ci k t
   | .inr (.inr (.inl (k, t))) => ch k t
   | .inr (.inr (.inr (.inl (k, t)))) => cv k t
-  | .inr (.inr (.inr (.inr (.inl j)))) => gc j
-  | .inr (.inr (.inr (.inr (.inr (.inl j))))) => gh j
-  | .inr (.inr (.inr (.inr (.inr (.inr (.inl j)))))) => gv j
-  | .inr (.inr (.inr (.inr (.inr (.inr (.inr (.inl l))))))) => ec l
-  | .inr (.inr (.inr (.inr (.inr (.inr (.inr (.inr (.inl l)))))))) => eh l
-  | .inr (.inr (.inr (.inr (.inr (.inr (.inr (.inr (.inr (.inl l))))))))) => ev l
-  | .inr (.inr (.inr (.inr (.inr (.inr (.inr (.inr (.inr (.inr (.inl ())))))))))) => rc
-  | .inr (.inr (.inr (.inr (.inr (.inr (.inr (.inr (.inr (.inr (.inr ())))))))))) => rh
+  | .inr (.inr (.inr (.inr (.inl ())))) => rc
+  | .inr (.inr (.inr (.inr (.inr ())))) => rh
 
 /-- `Name` is a sum type. -/
 def Name.sumEquiv : Name ≃ NameSum where
@@ -259,76 +196,108 @@ def Name.sumEquiv : Name ≃ NameSum where
   invFun := Name.ofSum
   left_inv n := by cases n <;> rfl
   right_inv s := by
-    rcases s with k | ⟨k, t⟩ | ⟨k, t⟩ | ⟨k, t⟩ | j | j | j | l | l | l | ⟨⟩ | ⟨⟩ <;> rfl
+    rcases s with k | ⟨k, t⟩ | ⟨k, t⟩ | ⟨k, t⟩ | ⟨⟩ | ⟨⟩ <;> rfl
 
 instance : Fintype Name := Fintype.ofEquiv NameSum Name.sumEquiv.symm
 
 /-- Sums over names split by constructor. -/
 theorem Name.sum_eq {M : Type} [AddCommMonoid M] (f : Name → M) :
     ∑ n, f n = (∑ k, f (src k)) + (∑ k, ∑ t, f (ci k t)) + (∑ k, ∑ t, f (ch k t)) +
-      (∑ k, ∑ t, f (cv k t)) +
-      (∑ j, f (gc j)) + (∑ j, f (gh j)) + (∑ j, f (gv j)) +
-      (∑ l, f (ec l)) + (∑ l, f (eh l)) + (∑ l, f (ev l)) + f rc + f rh := by
+      (∑ k, ∑ t, f (cv k t)) + f rc + f rh := by
   rw [← Fintype.sum_equiv Name.sumEquiv.symm (fun s => f (Name.ofSum s)) f (fun _ => rfl)]
   simp only [Fintype.sum_sum_type, Fintype.sum_prod_type, Fintype.sum_unique, Name.ofSum,
     add_assoc]
 
-/-! ## Tweaks
+/-! ## Headers
 
-The random oracle has no labels: a hash node queries it on its parent's value alone.  The scheme
-keeps its hash nodes apart by starting every hash input with a 16-bit tweak naming the hash node.
-Convention: the tweak occupies the HIGH bits, i.e. the input of the hash node `h` is
-`tw h ++ payload` (`BitVec.append`, whose left argument is the most significant one).  The
-payload is recovered by `setWidth`/`extractLsb' 0`, the tweak by `extractLsb' n 16` or
-`tagNat`. -/
+The random oracle has no labels: a hash node queries it on its parent's value alone. The scheme
+keeps its hash nodes apart by the inputs themselves. A chain input is `c ++ hdr k t`, with the
+64-bit header in the LOW bits (`BitVec.append`, whose left argument is the most significant one);
+the header is read back by `tagNat` from the low 64 bits of a 192-bit query. The root input is the
+only input of 6080 bits. -/
 
-/-- The tweak of the hash node `h`: its topological index, on 16 bits. -/
-def tw (h : Name) : BitVec 16 := BitVec.ofNat 16 h.idx
+/-- The header of the hash step at level `t` of chain `k`. -/
+def hdr (k : Fin 32) (t : Fin 15) : BitVec 64 := BitVec.ofNat 64 (Flat.hdrNat k t)
 
-theorem tw_toNat (h : Name) : (tw h).toNat = h.idx := by
-  have := h.idx_lt
-  unfold N at this
-  rw [tw, BitVec.toNat_ofNat]
-  exact Nat.mod_eq_of_lt (by omega)
+theorem hdr_toNat (k : Fin 32) (t : Fin 15) : (hdr k t).toNat = Flat.hdrNat k t := by
+  rw [hdr, BitVec.toNat_ofNat]
+  exact Nat.mod_eq_of_lt (Flat.hdrNat_lt k t k.isLt)
 
-theorem tw_injective : Function.Injective tw := by
-  intro h h' e
-  apply Name.idx_injective
-  rw [← tw_toNat h, ← tw_toNat h', e]
+theorem hdr_injective {k k' : Fin 32} {t t' : Fin 15} (h : hdr k t = hdr k' t') :
+    k = k' ∧ t = t' := by
+  have e := congrArg BitVec.toNat h
+  rw [hdr_toNat, hdr_toNat] at e
+  obtain ⟨h1, h2⟩ := Flat.hdrNat_injective k.isLt k'.isLt t.isLt t'.isLt e
+  exact ⟨Fin.ext h1, Fin.ext h2⟩
 
-/-- A hash input determines its tweak and its payload. -/
-theorem append_inj {n : ℕ} {a a' : BitVec 16} {u u' : BitVec n} (e : a ++ u = a' ++ u') :
-    a = a' ∧ u = u' := by
+/-- A hash input determines its payload and its header. -/
+theorem append_inj {n m : ℕ} {x x' : BitVec n} {y y' : BitVec m} (e : x ++ y = x' ++ y') :
+    x = x' ∧ y = y' := by
   constructor
-  · have := congrArg (fun z => z.extractLsb' n 16) e
+  · have := congrArg (fun z => z.extractLsb' m n) e
     simpa only [BitVec.extractLsb'_append_eq_left] using this
-  · have := congrArg (fun z => z.extractLsb' 0 n) e
+  · have := congrArg (fun z => z.extractLsb' 0 m) e
     simpa only [BitVec.extractLsb'_append_eq_right] using this
 
-/-- Equal hash inputs (of one length) belong to the same hash node and have the same payload. -/
-theorem tw_append_inj {n : ℕ} {h h' : Name} {u u' : BitVec n} (e : tw h ++ u = tw h' ++ u') :
-    h = h' ∧ u = u' :=
-  ⟨tw_injective (append_inj e).1, (append_inj e).2⟩
+/-- Equal chain inputs belong to the same chain hash and have the same payload. -/
+theorem hdr_append_inj {k k' : Fin 32} {t t' : Fin 15} {u u' : BitVec 128}
+    (e : u ++ hdr k t = u' ++ hdr k' t') : k = k' ∧ t = t' ∧ u = u' :=
+  ⟨(hdr_injective (append_inj e).2).1, (hdr_injective (append_inj e).2).2, (append_inj e).1⟩
 
-/-- The number written in the 16 high bits of a query. -/
-def tagNat (q : Query) : ℕ := q.2.toNat / 2 ^ (q.1 - 16)
+/-- The chain hash whose header is written in the low 64 bits of a number. -/
+def decodeHdr (h : ℕ) : ℕ :=
+  if e : ∃ p : Fin 32 × Fin 15, Flat.hdrNat p.1 p.2 = h then (Name.ch e.choose.1 e.choose.2).idx
+  else N
 
-theorem tagNat_append {n : ℕ} (a : BitVec 16) (u : BitVec n) :
-    tagNat ⟨16 + n, a ++ u⟩ = a.toNat := by
+theorem decodeHdr_hdrNat (k : Fin 32) (t : Fin 15) :
+    decodeHdr (Flat.hdrNat k t) = (Name.ch k t).idx := by
+  have e : ∃ p : Fin 32 × Fin 15, Flat.hdrNat p.1 p.2 = Flat.hdrNat k t := ⟨(k, t), rfl⟩
+  unfold decodeHdr
+  rw [dif_pos e]
+  obtain ⟨h1, h2⟩ := Flat.hdrNat_injective e.choose.1.isLt k.isLt e.choose.2.isLt t.isLt
+    e.choose_spec
+  rw [show e.choose.1 = k from Fin.ext h1, show e.choose.2 = t from Fin.ext h2]
+
+/-- The index of the hash node a query belongs to (`N` when none): the chain hash named by the
+header of a 192-bit query, or the root for a 6080-bit query. -/
+def tagNat (q : Query) : ℕ :=
+  if q.1 = 6080 then Name.rh.idx
+  else if q.1 = 192 then decodeHdr (q.2.toNat % 2 ^ 64)
+  else N
+
+/-- The header is read back from a chain input. -/
+theorem tagNat_hdr_append (k : Fin 32) (t : Fin 15) (u : BitVec 128) :
+    tagNat ⟨192, u ++ hdr k t⟩ = (Name.ch k t).idx := by
   unfold tagNat
-  simp only [BitVec.toNat_append, Nat.add_sub_cancel_left]
-  rw [← Nat.shiftLeft_add_eq_or_of_lt u.isLt, Nat.shiftLeft_eq, Nat.add_comm,
-    Nat.add_mul_div_right _ _ (Nat.two_pow_pos n), Nat.div_eq_of_lt u.isLt, Nat.zero_add]
+  simp only [show (192 : ℕ) ≠ 6080 by decide, if_false, if_true]
+  rw [BitVec.toNat_append, ← Nat.shiftLeft_add_eq_or_of_lt (hdr k t).isLt, Nat.shiftLeft_eq,
+    Nat.add_comm, Nat.add_mul_mod_self_right, Nat.mod_eq_of_lt (hdr k t).isLt, hdr_toNat,
+    decodeHdr_hdrNat]
 
-/-- The tweak is read back from a hash input. -/
-theorem tagNat_tw_append {n : ℕ} (h : Name) (u : BitVec n) :
-    tagNat ⟨16 + n, tw h ++ u⟩ = h.idx := by
-  rw [tagNat_append, tw_toNat]
+/-- A 6080-bit query belongs to the root. -/
+theorem tagNat_root (u : BitVec 6080) : tagNat ⟨6080, u⟩ = Name.rh.idx := by
+  simp [tagNat]
 
 /-- `tagNat` ignores casts. -/
 theorem tagNat_cast {n m : ℕ} (e : n = m) (u : BitVec n) :
     tagNat ⟨m, u.cast e⟩ = tagNat ⟨n, u⟩ := by
   subst e; rfl
+
+/-- The header between the values of chains `k - 1` and `k` in the root input: the header after
+the last step, whose level tag is zero. -/
+def rootHdr (k : ℕ) : BitVec 64 := BitVec.ofNat 64 (Flat.slotAddr k)
+
+/-- The root input over the first `j + 1` chain tops: `c j ‖ h_j ‖ ⋯ ‖ h_1 ‖ c 0`, with `c 0` in
+the low bits, as the tops lie in memory. -/
+def rootAcc (c : ℕ → BitVec 128) : (j : ℕ) → BitVec (128 + 192 * j)
+  | 0 => c 0
+  | j + 1 => ((c (j + 1) ++ rootHdr (j + 1)) ++ rootAcc c j).cast (by omega)
+
+/-- The chain tops as a function on naturals. -/
+def topFun (c : Fin 32 → BitVec 128) (j : ℕ) : BitVec 128 := if h : j < 32 then c ⟨j, h⟩ else 0
+
+/-- The root input: the 32 chain tops with the headers between them. -/
+def rootCat (c : Fin 32 → BitVec 128) : BitVec 6080 := (rootAcc (topFun c) 31).cast (by norm_num)
 
 /-! ## The graph -/
 
@@ -338,13 +307,6 @@ def lenF (v : Fin N) : ℕ := (ofFin v).len
 theorem lenF_fin (n : Name) : lenF n.fin = n.len := by
   rw [lenF, ofFin_fin]
 
-/-- Concatenation of three 128-bit values. -/
-def cat3 (a b c : BitVec 128) : BitVec 384 := (a ++ b ++ c).cast (by norm_num)
-
-/-- Concatenation of seven 128-bit values. -/
-def cat7 (a : Fin 7 → BitVec 128) : BitVec 896 :=
-  (a 0 ++ a 1 ++ a 2 ++ a 3 ++ a 4 ++ a 5 ++ a 6).cast (by norm_num)
-
 /-- The 128-bit truncation. -/
 def trunc {w : ℕ} (x : BitVec w) : BitVec 128 := x.setWidth 128
 
@@ -352,53 +314,30 @@ def trunc {w : ℕ} (x : BitVec w) : BitVec 128 := x.setWidth 128
 abbrev Asg := (v : Fin N) → BitVec (lenF v)
 
 /-- The deterministic value of a node, as a function of the assignment (only used for the
-deterministic nodes; the function is defined on all names for convenience).  The hash inputs
-`ci`, `gc`, `ec`, `rc` start with the tweak of their hash node, in the high bits. -/
+deterministic nodes; the function is defined on all names for convenience). -/
 def detVal (n : Name) (x : Asg) : BitVec n.len :=
   match n with
-  | .ci k t => tw (Name.ch k t) ++ trunc (x (Name.prev k t).fin)
+  | .ci k t => trunc (x (Name.prev k t).fin) ++ hdr k t
   | .cv k t => trunc (x (Name.ch k t).fin)
-  | .gc j => tw (Name.gh j) ++ cat3 (trunc (x (Name.cv (Name.chainOf j 0) 13).fin))
-      (trunc (x (Name.cv (Name.chainOf j 1) 13).fin)) (trunc (x (Name.cv (Name.chainOf j 2) 13).fin))
-  | .gv j => trunc (x (Name.gh j).fin)
-  | .ec l => tw (Name.eh l) ++ cat3 (trunc (x (Name.gv (Name.groupOf l 0)).fin))
-      (trunc (x (Name.gv (Name.groupOf l 1)).fin)) (trunc (x (Name.gv (Name.groupOf l 2)).fin))
-  | .ev l => trunc (x (Name.eh l).fin)
-  | .rc => tw Name.rh ++ cat7 fun l => trunc (x (Name.ev l).fin)
+  | .rc => rootCat fun k => trunc (x (Name.cv k 14).fin)
   | _ => 0
 
-theorem detVal_ci (k : Fin 63) (t : Fin 14) (x : Asg) :
-    detVal (.ci k t) x = tw (Name.ch k t) ++ trunc (x (Name.prev k t).fin) := rfl
-
-theorem detVal_gc (j : Fin 21) (x : Asg) :
-    detVal (.gc j) x = tw (Name.gh j) ++ cat3 (trunc (x (Name.cv (Name.chainOf j 0) 13).fin))
-      (trunc (x (Name.cv (Name.chainOf j 1) 13).fin))
-      (trunc (x (Name.cv (Name.chainOf j 2) 13).fin)) := rfl
-
-theorem detVal_ec (l : Fin 7) (x : Asg) :
-    detVal (.ec l) x = tw (Name.eh l) ++ cat3 (trunc (x (Name.gv (Name.groupOf l 0)).fin))
-      (trunc (x (Name.gv (Name.groupOf l 1)).fin))
-      (trunc (x (Name.gv (Name.groupOf l 2)).fin)) := rfl
+theorem detVal_ci (k : Fin 32) (t : Fin 15) (x : Asg) :
+    detVal (.ci k t) x = trunc (x (Name.prev k t).fin) ++ hdr k t := rfl
 
 theorem detVal_rc (x : Asg) :
-    detVal .rc x = tw Name.rh ++ cat7 fun l => trunc (x (Name.ev l).fin) := rfl
+    detVal .rc x = rootCat fun k => trunc (x (Name.cv k 14).fin) := rfl
 
-/-- The value of the parent `p` of a hash node `h` carries the tweak of `h`. -/
+/-- The value of the parent `p` of a hash node `h` carries the tag of `h`. -/
 theorem tagNat_detVal {p h : Name} (hc : Name.child p = some h) (hh : h.cost ≠ 0) (x : Asg) :
     tagNat ⟨p.len, detVal p x⟩ = h.idx := by
   cases p with
   | ci k t =>
     simp only [Name.child, Option.some.injEq] at hc; subst hc
-    exact tagNat_tw_append (n := 128) _ _
-  | gc j =>
-    simp only [Name.child, Option.some.injEq] at hc; subst hc
-    exact tagNat_tw_append (n := 384) _ _
-  | ec l =>
-    simp only [Name.child, Option.some.injEq] at hc; subst hc
-    exact tagNat_tw_append (n := 384) _ _
+    exact tagNat_hdr_append k t _
   | rc =>
     simp only [Name.child, Option.some.injEq] at hc; subst hc
-    exact tagNat_tw_append (n := 896) _ _
+    exact tagNat_root _
   | cv k t =>
     simp only [Name.child] at hc
     split_ifs at hc <;>
@@ -406,10 +345,6 @@ theorem tagNat_detVal {p h : Name} (hc : Name.child p = some h) (hh : h.cost ≠
   | rh => simp only [Name.child, reduceCtorEq] at hc
   | src k => simp only [Name.child, Option.some.injEq] at hc; subst hc; exact absurd rfl hh
   | ch k t => simp only [Name.child, Option.some.injEq] at hc; subst hc; exact absurd rfl hh
-  | gh j => simp only [Name.child, Option.some.injEq] at hc; subst hc; exact absurd rfl hh
-  | gv j => simp only [Name.child, Option.some.injEq] at hc; subst hc; exact absurd rfl hh
-  | eh l => simp only [Name.child, Option.some.injEq] at hc; subst hc; exact absurd rfl hh
-  | ev l => simp only [Name.child, Option.some.injEq] at hc; subst hc; exact absurd rfl hh
 
 /-- The same, for the value as stored in the graph (cast to the length `graph.len p.fin`). -/
 theorem tagNat_cast_detVal {p h : Name} (hc : Name.child p = some h) (hh : h.cost ≠ 0) (x : Asg)
@@ -441,49 +376,20 @@ theorem detVal_local (n : Name) (x y : Asg)
     hxy m.fin (Finset.mem_map_of_mem _ hm)
   cases n with
   | ci k t =>
-    show tw (Name.ch k t) ++ trunc (x (Name.prev k t).fin) =
-      tw (Name.ch k t) ++ trunc (y (Name.prev k t).fin)
+    show trunc (x (Name.prev k t).fin) ++ hdr k t = trunc (y (Name.prev k t).fin) ++ hdr k t
     rw [key (Name.prev k t) (by simp [Name.parents])]
   | cv k t =>
     show trunc (x (Name.ch k t).fin) = trunc (y (Name.ch k t).fin)
     rw [key (Name.ch k t) (by simp [Name.parents])]
-  | gc j =>
-    show tw (Name.gh j) ++ cat3 (trunc (x (Name.cv (Name.chainOf j 0) 13).fin))
-        (trunc (x (Name.cv (Name.chainOf j 1) 13).fin))
-        (trunc (x (Name.cv (Name.chainOf j 2) 13).fin)) =
-      tw (Name.gh j) ++ cat3 (trunc (y (Name.cv (Name.chainOf j 0) 13).fin))
-        (trunc (y (Name.cv (Name.chainOf j 1) 13).fin))
-        (trunc (y (Name.cv (Name.chainOf j 2) 13).fin))
-    rw [key (Name.cv (Name.chainOf j 0) 13) (by simp [Name.parents]),
-      key (Name.cv (Name.chainOf j 1) 13) (by simp [Name.parents]),
-      key (Name.cv (Name.chainOf j 2) 13) (by simp [Name.parents])]
-  | gv j =>
-    show trunc (x (Name.gh j).fin) = trunc (y (Name.gh j).fin)
-    rw [key (Name.gh j) (by simp [Name.parents])]
-  | ec l =>
-    show tw (Name.eh l) ++ cat3 (trunc (x (Name.gv (Name.groupOf l 0)).fin))
-        (trunc (x (Name.gv (Name.groupOf l 1)).fin))
-        (trunc (x (Name.gv (Name.groupOf l 2)).fin)) =
-      tw (Name.eh l) ++ cat3 (trunc (y (Name.gv (Name.groupOf l 0)).fin))
-        (trunc (y (Name.gv (Name.groupOf l 1)).fin))
-        (trunc (y (Name.gv (Name.groupOf l 2)).fin))
-    rw [key (Name.gv (Name.groupOf l 0)) (by simp [Name.parents]),
-      key (Name.gv (Name.groupOf l 1)) (by simp [Name.parents]),
-      key (Name.gv (Name.groupOf l 2)) (by simp [Name.parents])]
-  | ev l =>
-    show trunc (x (Name.eh l).fin) = trunc (y (Name.eh l).fin)
-    rw [key (Name.eh l) (by simp [Name.parents])]
   | rc =>
-    show tw Name.rh ++ cat7 (fun l => trunc (x (Name.ev l).fin)) =
-      tw Name.rh ++ cat7 (fun l => trunc (y (Name.ev l).fin))
-    have e : (fun l => trunc (x (Name.ev l).fin)) = fun l => trunc (y (Name.ev l).fin) := by
-      funext l
-      rw [key (Name.ev l) (Finset.mem_image_of_mem _ (Finset.mem_univ _))]
+    show rootCat (fun k => trunc (x (Name.cv k 14).fin)) =
+      rootCat (fun k => trunc (y (Name.cv k 14).fin))
+    have e : (fun k => trunc (x (Name.cv k 14).fin)) = fun k => trunc (y (Name.cv k 14).fin) := by
+      funext k
+      rw [key (Name.cv k 14) (Finset.mem_image_of_mem _ (Finset.mem_univ _))]
     rw [e]
   | src _ => rfl
   | ch _ _ => rfl
-  | gh _ => rfl
-  | eh _ => rfl
   | rh => rfl
 
 /-- The kind of the node `v = n.fin`. -/
@@ -498,26 +404,6 @@ def kindOf (v : Fin N) : (n : Name) → ofFin v = n → NodeKind N lenF v
   | .cv k t, h => .det ((Name.parents (.cv k t)).map nameEquiv.toEmbedding)
       (by exact det_parents_lt h)
       (fun x => (detVal (.cv k t) x).cast (by rw [lenF, h]))
-      (by intro x y hxy; exact congrArg _ (detVal_local _ x y hxy))
-  | .gc j, h => .det ((Name.parents (.gc j)).map nameEquiv.toEmbedding)
-      (by exact det_parents_lt h)
-      (fun x => (detVal (.gc j) x).cast (by rw [lenF, h]))
-      (by intro x y hxy; exact congrArg _ (detVal_local _ x y hxy))
-  | .gh j, h => .hash (Name.gc j).fin
-      (by exact hash_parent_lt h (Finset.mem_singleton_self _)) (by rw [lenF, h]; rfl)
-  | .gv j, h => .det ((Name.parents (.gv j)).map nameEquiv.toEmbedding)
-      (by exact det_parents_lt h)
-      (fun x => (detVal (.gv j) x).cast (by rw [lenF, h]))
-      (by intro x y hxy; exact congrArg _ (detVal_local _ x y hxy))
-  | .ec l, h => .det ((Name.parents (.ec l)).map nameEquiv.toEmbedding)
-      (by exact det_parents_lt h)
-      (fun x => (detVal (.ec l) x).cast (by rw [lenF, h]))
-      (by intro x y hxy; exact congrArg _ (detVal_local _ x y hxy))
-  | .eh l, h => .hash (Name.ec l).fin
-      (by exact hash_parent_lt h (Finset.mem_singleton_self _)) (by rw [lenF, h]; rfl)
-  | .ev l, h => .det ((Name.parents (.ev l)).map nameEquiv.toEmbedding)
-      (by exact det_parents_lt h)
-      (fun x => (detVal (.ev l) x).cast (by rw [lenF, h]))
       (by intro x y hxy; exact congrArg _ (detVal_local _ x y hxy))
   | .rc, h => .det ((Name.parents .rc).map nameEquiv.toEmbedding)
       (by exact det_parents_lt h)
@@ -563,7 +449,7 @@ theorem graph_isSource_fin (n : Name) :
     (graph.kind n.fin).IsSource ↔ ∃ k, n = .src k := by
   rw [graph_kind_fin]; exact kindOf_isSource _ _ _
 
-theorem Name.len_prev (k : Fin 63) (t : Fin 14) : (Name.prev k t).len = 128 := by
+theorem Name.len_prev (k : Fin 32) (t : Fin 15) : (Name.prev k t).len = 128 := by
   unfold Name.prev; split_ifs <;> rfl
 
 theorem graph_nodeCost_fin (n : Name) : graph.nodeCost n.fin = n.cost := by
@@ -572,8 +458,8 @@ theorem graph_nodeCost_fin (n : Name) : graph.nodeCost n.fin = n.cost := by
   cases n <;> simp only [kindOf, graph_len_fin] <;>
     simp [Name.cost, Name.len, blockCost, blockBits]
 
-theorem graph_keygenCost : graph.keygenCost = 912 := by
-  show ∑ v : Fin N, graph.nodeCost v = 912
+theorem graph_keygenCost : graph.keygenCost = 492 := by
+  show ∑ v : Fin N, graph.nodeCost v = 492
   rw [← Fintype.sum_equiv nameEquiv (fun n => graph.nodeCost n.fin) (fun v => graph.nodeCost v)
     (fun _ => rfl)]
   simp only [graph_nodeCost_fin]

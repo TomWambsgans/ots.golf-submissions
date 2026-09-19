@@ -14,7 +14,7 @@ an honest value), and records which record coordinates each value depends on (`d
 two coordinate updates `updSrc` and `updHash`.
 
 The oracle has no labels.  A keygen point is the bare input `⟨p.len, val ξ p⟩` of a hash node; the
-hash node is read back from the tweak in its 16 high bits (`tagNat_pointOf`, `tagging`), and a
+hash node is read back from its header or its length (`tagNat_pointOf`, `tagging`), and a
 keygen point never has the length of an index query (`pointOf_ne_encQuery`).
 -/
 
@@ -61,7 +61,7 @@ theorem trunc_evalRec (ξ : Rec) (n : Name) : trunc (graph.evalRec ξ n.fin) = t
   unfold val
   exact (trunc_cast _ _).symm
 
-theorem val_src (ξ : Rec) (k : Fin 63) : val ξ (src k) = (ξ.1 (src k).fin).cast (graph_len_fin _) := by
+theorem val_src (ξ : Rec) (k : Fin 32) : val ξ (src k) = (ξ.1 (src k).fin).cast (graph_len_fin _) := by
   unfold val
   rw [evalRec_apply_fin]
   rfl
@@ -75,29 +75,29 @@ theorem trunc_injective_of_len {w : ℕ} (hw : w = 128) :
   intro x y e
   rwa [trunc_eq_self, trunc_eq_self] at e
 
-/-- The input of the chain hash `ch k t`: its tweak, then the value of `prev k t`. -/
-theorem val_ci (ξ : Rec) (k : Fin 63) (t : Fin 14) :
-    val ξ (ci k t) = tw (ch k t) ++ trunc (val ξ (prev k t)) := by
+/-- The input of the chain hash `ch k t`: the value of `prev k t`, then its header. -/
+theorem val_ci (ξ : Rec) (k : Fin 32) (t : Fin 15) :
+    val ξ (ci k t) = trunc (val ξ (prev k t)) ++ hdr k t := by
   unfold val
   rw [evalRec_apply_fin]
   simp only [kindOf, NodeKind.value]
   refine (cast_cast_eq _ _ _).trans ?_
-  show tw (ch k t) ++ trunc (graph.evalRec ξ (prev k t).fin) = _
+  show trunc (graph.evalRec ξ (prev k t).fin) ++ hdr k t = _
   rw [trunc_evalRec]
   rfl
 
-theorem val_ch (ξ : Rec) (k : Fin 63) (t : Fin 14) : val ξ (ch k t) = ξ.2 (ch k t).fin := by
+theorem val_ch (ξ : Rec) (k : Fin 32) (t : Fin 15) : val ξ (ch k t) = ξ.2 (ch k t).fin := by
   unfold val
   rw [evalRec_apply_fin]
   simp only [kindOf, NodeKind.value]
   exact cast_cast_eq _ _ _
 
-theorem trunc_val_ch (ξ : Rec) (k : Fin 63) (t : Fin 14) :
+theorem trunc_val_ch (ξ : Rec) (k : Fin 32) (t : Fin 15) :
     trunc (graph.evalRec ξ (ch k t).fin) = trunc (ξ.2 (ch k t).fin) := by
   rw [trunc_evalRec, val_ch]
   rfl
 
-theorem val_cv (ξ : Rec) (k : Fin 63) (t : Fin 14) : val ξ (cv k t) = trunc (ξ.2 (ch k t).fin) := by
+theorem val_cv (ξ : Rec) (k : Fin 32) (t : Fin 15) : val ξ (cv k t) = trunc (ξ.2 (ch k t).fin) := by
   unfold val
   rw [evalRec_apply_fin]
   simp only [kindOf, NodeKind.value]
@@ -105,104 +105,32 @@ theorem val_cv (ξ : Rec) (k : Fin 63) (t : Fin 14) : val ξ (cv k t) = trunc (�
   show trunc (graph.evalRec ξ (ch k t).fin) = _
   exact trunc_val_ch ξ k t
 
-theorem trunc_val_cv (ξ : Rec) (k : Fin 63) (t : Fin 14) :
+theorem trunc_val_cv (ξ : Rec) (k : Fin 32) (t : Fin 15) :
     trunc (graph.evalRec ξ (cv k t).fin) = trunc (ξ.2 (ch k t).fin) := by
   rw [trunc_evalRec, val_cv]
   exact trunc_trunc _
 
 /-- The first chain input reads the source. -/
-theorem val_ci_zero (ξ : Rec) (k : Fin 63) (t : Fin 14) (ht : t.val = 0) :
-    val ξ (ci k t) = tw (ch k t) ++ val ξ (src k) := by
+theorem val_ci_zero (ξ : Rec) (k : Fin 32) (t : Fin 15) (ht : t.val = 0) :
+    val ξ (ci k t) = val ξ (src k) ++ hdr k t := by
   have e : prev k t = src k := by simp [Name.prev, ht]
   rw [val_ci, e]
-  exact congrArg (tw (ch k t) ++ ·) (trunc_eq_self _)
+  exact congrArg (· ++ hdr k t) (trunc_eq_self _)
 
 /-- A later chain input reads the previous chain hash. -/
-theorem val_ci_succ (ξ : Rec) (k : Fin 63) (t : Fin 14) (ht : ¬ t.val = 0) :
-    val ξ (ci k t) = tw (ch k t) ++ trunc (ξ.2 (ch k ⟨t.val - 1, by omega⟩).fin) := by
+theorem val_ci_succ (ξ : Rec) (k : Fin 32) (t : Fin 15) (ht : ¬ t.val = 0) :
+    val ξ (ci k t) = trunc (ξ.2 (ch k ⟨t.val - 1, by omega⟩).fin) ++ hdr k t := by
   have e : prev k t = cv k ⟨t.val - 1, by omega⟩ := by simp [Name.prev, ht]
   rw [val_ci, e, val_cv]
-  exact congrArg (tw (ch k t) ++ ·) (trunc_trunc _)
+  exact congrArg (· ++ hdr k t) (trunc_trunc _)
 
-theorem val_gc (ξ : Rec) (j : Fin 21) :
-    val ξ (gc j) = tw (gh j) ++ cat3 (trunc (ξ.2 (ch (chainOf j 0) 13).fin))
-      (trunc (ξ.2 (ch (chainOf j 1) 13).fin)) (trunc (ξ.2 (ch (chainOf j 2) 13).fin)) := by
+theorem val_rc (ξ : Rec) : val ξ rc = rootCat fun k => trunc (ξ.2 (ch k 14).fin) := by
   unfold val
   rw [evalRec_apply_fin]
   simp only [kindOf, NodeKind.value]
   refine (cast_cast_eq _ _ _).trans ?_
-  show tw (gh j) ++ cat3 (trunc (graph.evalRec ξ (cv (chainOf j 0) 13).fin))
-    (trunc (graph.evalRec ξ (cv (chainOf j 1) 13).fin))
-    (trunc (graph.evalRec ξ (cv (chainOf j 2) 13).fin)) = _
-  rw [trunc_val_cv, trunc_val_cv, trunc_val_cv]
-
-theorem val_gh (ξ : Rec) (j : Fin 21) : val ξ (gh j) = ξ.2 (gh j).fin := by
-  unfold val
-  rw [evalRec_apply_fin]
-  simp only [kindOf, NodeKind.value]
-  exact cast_cast_eq _ _ _
-
-theorem trunc_val_gh (ξ : Rec) (j : Fin 21) :
-    trunc (graph.evalRec ξ (gh j).fin) = trunc (ξ.2 (gh j).fin) := by
-  rw [trunc_evalRec, val_gh]
-  rfl
-
-theorem val_gv (ξ : Rec) (j : Fin 21) : val ξ (gv j) = trunc (ξ.2 (gh j).fin) := by
-  unfold val
-  rw [evalRec_apply_fin]
-  simp only [kindOf, NodeKind.value]
-  refine (cast_cast_eq _ _ _).trans ?_
-  show trunc (graph.evalRec ξ (gh j).fin) = _
-  exact trunc_val_gh ξ j
-
-theorem trunc_val_gv (ξ : Rec) (j : Fin 21) :
-    trunc (graph.evalRec ξ (gv j).fin) = trunc (ξ.2 (gh j).fin) := by
-  rw [trunc_evalRec, val_gv]
-  exact trunc_trunc _
-
-theorem val_ec (ξ : Rec) (l : Fin 7) :
-    val ξ (ec l) = tw (eh l) ++ cat3 (trunc (ξ.2 (gh (groupOf l 0)).fin))
-      (trunc (ξ.2 (gh (groupOf l 1)).fin)) (trunc (ξ.2 (gh (groupOf l 2)).fin)) := by
-  unfold val
-  rw [evalRec_apply_fin]
-  simp only [kindOf, NodeKind.value]
-  refine (cast_cast_eq _ _ _).trans ?_
-  show tw (eh l) ++ cat3 (trunc (graph.evalRec ξ (gv (groupOf l 0)).fin))
-    (trunc (graph.evalRec ξ (gv (groupOf l 1)).fin))
-    (trunc (graph.evalRec ξ (gv (groupOf l 2)).fin)) = _
-  rw [trunc_val_gv, trunc_val_gv, trunc_val_gv]
-
-theorem val_eh (ξ : Rec) (l : Fin 7) : val ξ (eh l) = ξ.2 (eh l).fin := by
-  unfold val
-  rw [evalRec_apply_fin]
-  simp only [kindOf, NodeKind.value]
-  exact cast_cast_eq _ _ _
-
-theorem trunc_val_eh (ξ : Rec) (l : Fin 7) :
-    trunc (graph.evalRec ξ (eh l).fin) = trunc (ξ.2 (eh l).fin) := by
-  rw [trunc_evalRec, val_eh]
-  rfl
-
-theorem val_ev (ξ : Rec) (l : Fin 7) : val ξ (ev l) = trunc (ξ.2 (eh l).fin) := by
-  unfold val
-  rw [evalRec_apply_fin]
-  simp only [kindOf, NodeKind.value]
-  refine (cast_cast_eq _ _ _).trans ?_
-  show trunc (graph.evalRec ξ (eh l).fin) = _
-  exact trunc_val_eh ξ l
-
-theorem trunc_val_ev (ξ : Rec) (l : Fin 7) :
-    trunc (graph.evalRec ξ (ev l).fin) = trunc (ξ.2 (eh l).fin) := by
-  rw [trunc_evalRec, val_ev]
-  exact trunc_trunc _
-
-theorem val_rc (ξ : Rec) : val ξ rc = tw rh ++ cat7 fun l => trunc (ξ.2 (eh l).fin) := by
-  unfold val
-  rw [evalRec_apply_fin]
-  simp only [kindOf, NodeKind.value]
-  refine (cast_cast_eq _ _ _).trans ?_
-  show tw rh ++ cat7 (fun l => trunc (graph.evalRec ξ (ev l).fin)) = _
-  exact congrArg (fun a => tw rh ++ cat7 a) (funext fun l => trunc_val_ev ξ l)
+  show rootCat (fun k => trunc (graph.evalRec ξ (cv k 14).fin)) = _
+  exact congrArg rootCat (funext fun k => trunc_val_cv ξ k 14)
 
 theorem val_rh (ξ : Rec) : val ξ rh = ξ.2 rh.fin := by
   unfold val
@@ -215,11 +143,9 @@ def pkOf (ξ : Rec) : BitVec 128 := trunc (ξ.2 rh.fin)
 
 /-! ## Hash nodes and keygen points -/
 
-/-- The node whose value a hash node hashes: its tweaked input. -/
+/-- The node whose value a hash node hashes: its tagged input. -/
 def hashParent : Name → Option Name
   | ch k t => some (ci k t)
-  | gh j => some (gc j)
-  | eh l => some (ec l)
   | rh => some rc
   | _ => none
 
@@ -233,9 +159,9 @@ theorem child_hashParent {h p : Name} (hp : hashParent h = some p) : child p = s
   cases h <;> simp only [hashParent, Option.some.injEq, reduceCtorEq] at hp <;> subst hp
   all_goals rfl
 
-/-- The input of a hash node has length 144 (chains), 400 (groups, subtrees) or 912 (root). -/
+/-- The input of a hash node has length 192 (chains) or 6080 (root). -/
 theorem len_hashParent_cases {h p : Name} (hp : hashParent h = some p) :
-    p.len = 144 ∨ p.len = 400 ∨ p.len = 912 := by
+    p.len = 192 ∨ p.len = 6080 := by
   cases h <;> simp only [hashParent, Option.some.injEq, reduceCtorEq] at hp <;> subst hp <;>
     simp [Name.len]
 
@@ -244,21 +170,19 @@ theorem len_hashParent_ne_enc {h p : Name} (hp : hashParent h = some p) :
     p.len ≠ msgBits + nonceBits := by
   have e : msgBits + nonceBits = 384 := rfl
   rw [e]
-  rcases len_hashParent_cases hp with e | e | e <;> omega
+  rcases len_hashParent_cases hp with e | e <;> omega
 
 /-- The keygen point of the hash node `h` with parent `p`: the bare input of `h`.  The hash node
-is not written next to the input (the oracle has no labels); it is read back from the tweak
-(`tagNat_pointOf`). -/
+is not written next to the input (the oracle has no labels); it is read back from the header or
+the length (`tagNat_pointOf`). -/
 def pointOf (ξ : Rec) (_h p : Name) : Query := ⟨p.len, val ξ p⟩
 
-/-- The value of the parent of a hash node starts with the tweak of that hash node. -/
+/-- The value of the parent of a hash node carries the tag of that hash node. -/
 theorem tagNat_val {h p : Name} (hp : hashParent h = some p) (ξ : Rec) :
     tagNat ⟨p.len, val ξ p⟩ = h.idx := by
   cases h <;> simp only [hashParent, Option.some.injEq, reduceCtorEq] at hp <;> subst hp
-  · rw [val_ci]; exact tagNat_tw_append (n := 128) _ _
-  · rw [val_gc]; exact tagNat_tw_append (n := 384) _ _
-  · rw [val_ec]; exact tagNat_tw_append (n := 384) _ _
-  · rw [val_rc]; exact tagNat_tw_append (n := 896) _ _
+  · rw [val_ci]; exact tagNat_hdr_append _ _ _
+  · exact tagNat_root _
 
 /-- A keygen point carries the index of its hash node. -/
 theorem tagNat_pointOf {h p : Name} (hp : hashParent h = some p) (ξ : Rec) :
@@ -275,7 +199,7 @@ theorem pointOf_inj_input {ξ ξ' : Rec} {h p : Name} (e : pointOf ξ h p = poin
   simp only [pointOf, Sigma.mk.inj_iff, heq_eq_eq, true_and] at e
   exact e
 
-/-- A keygen point is not an index query: its length is 144, 400 or 912, never 384. -/
+/-- A keygen point is not an index query: its length is 192 or 6080, never 384. -/
 theorem pointOf_ne_encQuery {h p : Name} (hp : hashParent h = some p) (ξ : Rec)
     (u : EncInput) : pointOf ξ h p ≠ encQuery u :=
   ne_encQuery_of_length_ne (len_hashParent_ne_enc hp) u
@@ -301,13 +225,11 @@ theorem graph_point_fin (ξ : Rec) (h : Name) :
   rw [graph_kind_fin]
   cases h <;> simp only [kindOf, hashParent, Option.map_some, Option.map_none, pointOf]
   case ch k t => exact congrArg some (sigma_val ξ (ci k t))
-  case gh j => exact congrArg some (sigma_val ξ (gc j))
-  case eh l => exact congrArg some (sigma_val ξ (ec l))
   case rh => exact congrArg some (sigma_val ξ rc)
 
 /-! ## The tagging of the concrete graph -/
 
-/-- The hash node a query belongs to: the node whose index is written in its 16 high bits. -/
+/-- The hash node a query belongs to. -/
 def tagOf (q : Query) : Option (Fin N) := if h : tagNat q < N then some ⟨tagNat q, h⟩ else none
 
 theorem tagOf_eq_some_of_tagNat {q : Query} {h : Name} (e : tagNat q = h.idx) :
@@ -330,16 +252,14 @@ theorem graph_kind_eq_hash {h : Name} {q : Fin N} {hq : q < h.fin} {hl : lenF h.
   rw [graph_kind_fin] at hk
   cases h <;> simp only [kindOf, reduceCtorEq] at hk
   case ch k t => exact ⟨ci k t, rfl, (NodeKind.hash.inj hk).symm⟩
-  case gh j => exact ⟨gc j, rfl, (NodeKind.hash.inj hk).symm⟩
-  case eh l => exact ⟨ec l, rfl, (NodeKind.hash.inj hk).symm⟩
   case rh => exact ⟨rc, rfl, (NodeKind.hash.inj hk).symm⟩
 
-/-- The input of a hash node carries its tweak, in every assignment. -/
+/-- The input of a hash node carries its tag, in every assignment. -/
 theorem tagNat_detVal_of_hashParent {h p : Name} (hp : hashParent h = some p) (x : Asg) :
     tagNat ⟨p.len, detVal p x⟩ = h.idx :=
   tagNat_detVal (child_hashParent hp) (cost_ne_zero_of_hashParent hp) x
 
-/-- The tagging of the concrete graph: every hash input starts with the index of its hash node. -/
+/-- The tagging of the concrete graph: every hash input names its hash node. -/
 def tagging : graph.Tagging where
   tag q := if h : tagNat q < N then some ⟨tagNat q, h⟩ else none
   tag_parent := by
@@ -489,8 +409,8 @@ theorem fHid_isSome_some_iff (A : Finset Name) (ξ : Rec) (q : Query) :
 
 /-! ## The event `Spr` -/
 
-/-- Some cached answer, at a string carrying the tweak of a hash node but different from the
-honest input of that node, begins with the honest output of that node.  The tweak condition makes
+/-- Some cached answer, at a string carrying the tag of a hash node but different from the
+honest input of that node, begins with the honest output of that node.  The tag condition makes
 a query count for one hash node only: without labels, a string of length `p.len` could otherwise
 be a spurious preimage for every hash node with that input length. -/
 def Spr (c : Cache) (ξ : Rec) : Prop :=
@@ -608,7 +528,7 @@ theorem spr_charge (c : Cache) (ξ : Rec) (q : Query) (hq : c q = none) :
               (ENNReal.natCast_ne_top _)]
       _ ≤ 1 + ε := le_self_add
   · rw [if_neg hs, zero_add]
-    -- a new `Spr` entry sits at `q`, so it belongs to the hash node written in the tweak of `q`
+    -- a new `Spr` entry sits at `q`, so it belongs to the hash node named by the tag of `q`
     have key : ∀ w, Spr (c.cacheQuery q w) ξ →
         ∃ h : Name, tagNat q = h.idx ∧ trunc w = trunc (ξ.2 h.fin) := by
       rintro w ⟨h, p, hp, u, hu, htag, w', hw', ht⟩
@@ -658,54 +578,32 @@ def deps : Name → Finset Name
   | ci k t => if h : t.val = 0 then {src k} else {ch k ⟨t.val - 1, by omega⟩}
   | ch k t => {ch k t}
   | cv k t => {ch k t}
-  | gc j => {ch (chainOf j 0) 13, ch (chainOf j 1) 13, ch (chainOf j 2) 13}
-  | gh j => {gh j}
-  | gv j => {gh j}
-  | ec l => {gh (groupOf l 0), gh (groupOf l 1), gh (groupOf l 2)}
-  | eh l => {eh l}
-  | ev l => {eh l}
-  | rc => Finset.univ.image eh
+  | rc => Finset.univ.image fun k => ch k 14
   | rh => {rh}
 
-theorem deps_ci_zero (k : Fin 63) (t : Fin 14) (ht : t.val = 0) : deps (ci k t) = {src k} := by
+theorem deps_ci_zero (k : Fin 32) (t : Fin 15) (ht : t.val = 0) : deps (ci k t) = {src k} := by
   simp only [deps, dif_pos ht]
 
-theorem deps_ci_succ (k : Fin 63) (t : Fin 14) (ht : ¬ t.val = 0) :
+theorem deps_ci_succ (k : Fin 32) (t : Fin 15) (ht : ¬ t.val = 0) :
     deps (ci k t) = {ch k ⟨t.val - 1, by omega⟩} := by
   simp only [deps, dif_neg ht]
 
-theorem child_src_ci (k : Fin 63) (t : Fin 14) (ht : t.val = 0) : child (src k) = some (ci k t) := by
+theorem child_src_ci (k : Fin 32) (t : Fin 15) (ht : t.val = 0) : child (src k) = some (ci k t) := by
   have e : t = 0 := Fin.ext ht
   subst e
   rfl
 
-theorem child_cv_ci (k : Fin 63) (t : Fin 14) (ht : ¬ t.val = 0) :
+theorem child_cv_ci (k : Fin 32) (t : Fin 15) (ht : ¬ t.val = 0) :
     child (cv k ⟨t.val - 1, by omega⟩) = some (ci k t) := by
   simp only [Name.child]
   rw [dif_neg (by omega)]
   simp only [Option.some.injEq, Name.ci.injEq, true_and, Fin.ext_iff]
   omega
 
-theorem chainOf_div (j : Fin 21) (a : Fin 3) : ((chainOf j a : Fin 63) : ℕ) / 3 = j := by
-  simp only [chainOf]
-  omega
-
-theorem groupOf_div (l : Fin 7) (a : Fin 3) : ((groupOf l a : Fin 21) : ℕ) / 3 = l := by
-  simp only [groupOf]
-  omega
-
-theorem child_cv_13 (k : Fin 63) : child (cv k 13) = some (gc ⟨k / 3, by omega⟩) := rfl
-
-theorem child_cv_13_gc (j : Fin 21) (a : Fin 3) : child (cv (chainOf j a) 13) = some (gc j) := by
-  rw [child_cv_13]
-  exact congrArg some (congrArg gc (Fin.ext (chainOf_div j a)))
-
-theorem child_gv_ec (l : Fin 7) (a : Fin 3) : child (gv (groupOf l a)) = some (ec l) := by
-  show some (ec ⟨(groupOf l a : ℕ) / 3, by omega⟩) = some (ec l)
-  exact congrArg some (congrArg ec (Fin.ext (groupOf_div l a)))
+theorem child_cv_14 (k : Fin 32) : child (cv k 14) = some rc := rfl
 
 /-- Resample a source. -/
-def updSrc (ξ : Rec) (k : Fin 63) (b : BitVec 128) : Rec :=
+def updSrc (ξ : Rec) (k : Fin 32) (b : BitVec 128) : Rec :=
   (Function.update ξ.1 (src k).fin (b.cast (graph_len_fin (src k)).symm), ξ.2)
 
 /-- Resample a hash output. -/
@@ -719,7 +617,7 @@ theorem updHash_snd_ne (ξ : Rec) (s : Name) (b : BitVec 256) {n : Name} (h : n 
   simp only [updHash]
   exact Function.update_of_ne (fun e => h (Name.fin_injective e)) _ _
 
-theorem updSrc_snd (ξ : Rec) (k : Fin 63) (b : BitVec 128) : (updSrc ξ k b).2 = ξ.2 := rfl
+theorem updSrc_snd (ξ : Rec) (k : Fin 32) (b : BitVec 128) : (updSrc ξ k b).2 = ξ.2 := rfl
 
 theorem val_updHash_of_not_mem_deps (ξ : Rec) (s : Name) (b : BitVec 256) (n : Name)
     (h : s ∉ deps n) : val (updHash ξ s b) n = val ξ n := by
@@ -739,44 +637,21 @@ theorem val_updHash_of_not_mem_deps (ξ : Rec) (s : Name) (b : BitVec 256) (n : 
   | cv k t =>
     simp only [deps, Finset.mem_singleton] at h
     rw [val_cv, val_cv, updHash_snd_ne _ _ _ (Ne.symm h)]
-  | gc j =>
-    simp only [deps, Finset.mem_insert, Finset.mem_singleton, not_or] at h
-    obtain ⟨h0, h1, h2⟩ := h
-    rw [val_gc, val_gc, updHash_snd_ne _ _ _ (Ne.symm h0), updHash_snd_ne _ _ _ (Ne.symm h1),
-      updHash_snd_ne _ _ _ (Ne.symm h2)]
-  | gh j =>
-    simp only [deps, Finset.mem_singleton] at h
-    rw [val_gh, val_gh, updHash_snd_ne _ _ _ (Ne.symm h)]
-  | gv j =>
-    simp only [deps, Finset.mem_singleton] at h
-    rw [val_gv, val_gv, updHash_snd_ne _ _ _ (Ne.symm h)]
-  | ec l =>
-    simp only [deps, Finset.mem_insert, Finset.mem_singleton, not_or] at h
-    obtain ⟨h0, h1, h2⟩ := h
-    rw [val_ec, val_ec, updHash_snd_ne _ _ _ (Ne.symm h0), updHash_snd_ne _ _ _ (Ne.symm h1),
-      updHash_snd_ne _ _ _ (Ne.symm h2)]
-  | eh l =>
-    simp only [deps, Finset.mem_singleton] at h
-    rw [val_eh, val_eh, updHash_snd_ne _ _ _ (Ne.symm h)]
-  | ev l =>
-    simp only [deps, Finset.mem_singleton] at h
-    rw [val_ev, val_ev, updHash_snd_ne _ _ _ (Ne.symm h)]
   | rc =>
     simp only [deps, Finset.mem_image, Finset.mem_univ, true_and, not_exists] at h
     rw [val_rc, val_rc]
-    exact congrArg (fun a => tw rh ++ cat7 a)
-      (funext fun l => by rw [updHash_snd_ne _ _ _ (h l)])
+    exact congrArg rootCat (funext fun k => by rw [updHash_snd_ne _ _ _ (h k)])
   | rh =>
     simp only [deps, Finset.mem_singleton] at h
     rw [val_rh, val_rh, updHash_snd_ne _ _ _ (Ne.symm h)]
 
-theorem val_updSrc_src_of_ne (ξ : Rec) (k : Fin 63) (b : BitVec 128) {k' : Fin 63} (h : ¬ k = k') :
+theorem val_updSrc_src_of_ne (ξ : Rec) (k : Fin 32) (b : BitVec 128) {k' : Fin 32} (h : ¬ k = k') :
     val (updSrc ξ k b) (src k') = val ξ (src k') := by
   have e : (updSrc ξ k b).1 (src k').fin = ξ.1 (src k').fin :=
     Function.update_of_ne (fun e => h (Name.src.inj (Name.fin_injective e)).symm) _ _
   rw [val_src, val_src, e]
 
-theorem val_updSrc_of_not_mem_deps (ξ : Rec) (k : Fin 63) (b : BitVec 128) (n : Name)
+theorem val_updSrc_of_not_mem_deps (ξ : Rec) (k : Fin 32) (b : BitVec 128) (n : Name)
     (h : src k ∉ deps n) : val (updSrc ξ k b) n = val ξ n := by
   cases n with
   | src k' =>
@@ -789,16 +664,10 @@ theorem val_updSrc_of_not_mem_deps (ξ : Rec) (k : Fin 63) (b : BitVec 128) (n :
     · rw [val_ci_succ _ k' t ht, val_ci_succ _ k' t ht, updSrc_snd]
   | ch k t => rw [val_ch, val_ch, updSrc_snd]
   | cv k t => rw [val_cv, val_cv, updSrc_snd]
-  | gc j => rw [val_gc, val_gc, updSrc_snd]
-  | gh j => rw [val_gh, val_gh, updSrc_snd]
-  | gv j => rw [val_gv, val_gv, updSrc_snd]
-  | ec l => rw [val_ec, val_ec, updSrc_snd]
-  | eh l => rw [val_eh, val_eh, updSrc_snd]
-  | ev l => rw [val_ev, val_ev, updSrc_snd]
   | rc => rw [val_rc, val_rc, updSrc_snd]
   | rh => rw [val_rh, val_rh, updSrc_snd]
 
-theorem val_updSrc_self (ξ : Rec) (k : Fin 63) (b : BitVec 128) :
+theorem val_updSrc_self (ξ : Rec) (k : Fin 32) (b : BitVec 128) :
     val (updSrc ξ k b) (src k) = b := by
   have e : (updSrc ξ k b).1 (src k).fin = b.cast (graph_len_fin (src k)).symm :=
     Function.update_self _ _ _
@@ -813,16 +682,14 @@ theorem snd_updHash_self (ξ : Rec) (s : Name) (b : BitVec 256) :
     (updHash ξ s b).2 s.fin = b :=
   updHash_snd_self ξ s b
 
-theorem snd_updSrc (ξ : Rec) (k : Fin 63) (b : BitVec 128) : (updSrc ξ k b).2 = ξ.2 := rfl
+theorem snd_updSrc (ξ : Rec) (k : Fin 32) (b : BitVec 128) : (updSrc ξ k b).2 = ξ.2 := rfl
 
 /-! ## The coordinate that randomizes the input of a hash node -/
 
 /-- The coordinate resampled to randomize the input of a hash node (junk for other nodes). -/
 def coordOf : Name → Name
   | ch k t => if h : t.val = 0 then src k else ch k ⟨t.val - 1, by omega⟩
-  | gh j => ch (chainOf j 2) 13
-  | eh l => gh (groupOf l 2)
-  | rh => eh 6
+  | rh => ch 0 14
   | n => n
 
 theorem coordOf_ne_rh (h : Name) (hh : h.cost ≠ 0) : coordOf h ≠ rh := by
@@ -830,8 +697,6 @@ theorem coordOf_ne_rh (h : Name) (hh : h.cost ≠ 0) : coordOf h ≠ rh := by
   case ch k t =>
     simp only [coordOf]
     split_ifs <;> simp
-  case gh j => simp [coordOf]
-  case eh l => simp [coordOf]
   case rh => simp [coordOf]
   all_goals exact absurd rfl hh
 
@@ -844,49 +709,29 @@ theorem coordOf_below {h p : Name} (hp : hashParent h = some p) :
     split_ifs with ht
     · exact Or.inr (Or.inl (child_src_ci k t ht))
     · exact Or.inr (Or.inr ⟨cv k ⟨t.val - 1, by omega⟩, rfl, child_cv_ci k t ht⟩)
-  · exact Or.inr (Or.inr ⟨cv (chainOf _ 2) 13, rfl, child_cv_13_gc _ 2⟩)
-  · exact Or.inr (Or.inr ⟨gv (groupOf _ 2), rfl, child_gv_ec _ 2⟩)
-  · exact Or.inr (Or.inr ⟨ev 6, rfl, rfl⟩)
+  · exact Or.inr (Or.inr ⟨cv 0 14, rfl, rfl⟩)
 
-theorem trunc_cat3 (x y z : BitVec 128) : trunc (cat3 x y z) = z := by
-  unfold cat3
-  rw [trunc_cast]
-  unfold trunc
-  rw [BitVec.setWidth_append, dif_pos le_rfl, BitVec.setWidth_eq]
-
-theorem trunc_cat7 (a : Fin 7 → BitVec 128) : trunc (cat7 a) = a 6 := by
-  unfold cat7
-  rw [trunc_cast]
-  unfold trunc
-  rw [BitVec.setWidth_append, dif_pos le_rfl, BitVec.setWidth_eq]
-
-/-- The tweak sits in the high bits: it does not change the 128 low bits of a payload of at least
-128 bits. -/
-theorem trunc_tw_append {n : ℕ} (hn : 128 ≤ n) (a : BitVec 16) (x : BitVec n) :
-    trunc (a ++ x) = trunc x := by
-  unfold trunc
-  rw [BitVec.setWidth_append, dif_pos hn]
-
-/-- The low 128 bits of a tweaked hash input are those of its payload. -/
-theorem trunc_of_tw_append_eq {n : ℕ} (hn : 128 ≤ n) {a : BitVec 16} {x : BitVec n}
-    {u : BitVec (16 + n)} (e : a ++ x = u) : trunc u = trunc x := by
+/-- The payload of a chain input is its high 128 bits. -/
+theorem payload_of_hdr_eq {x : BitVec 128} {h : BitVec 64} {u : BitVec 192} (e : x ++ h = u) :
+    x = u.extractLsb' 64 128 := by
   subst e
-  exact trunc_tw_append hn a x
+  exact (BitVec.extractLsb'_append_eq_left).symm
 
-/-- A chain input: the payload is the low 128 bits. -/
-theorem trunc_of_tw_eq {a : BitVec 16} {x : BitVec 128} {u : BitVec 144} (e : a ++ x = u) :
-    trunc u = x :=
-  (trunc_of_tw_append_eq (n := 128) le_rfl e).trans (trunc_eq_self x)
+/-- A concatenation whose low part has at least 128 bits has the low part's truncation. -/
+theorem trunc_append_low {n m : ℕ} (hm : 128 ≤ m) (x : BitVec n) (y : BitVec m) :
+    trunc (x ++ y) = trunc y := by
+  unfold trunc
+  rw [BitVec.setWidth_append, dif_pos hm]
 
-/-- A tweaked concatenation of three values: the low 128 bits are the last value. -/
-theorem trunc_of_tw_cat3_eq {a : BitVec 16} {x y z : BitVec 128} {u : BitVec 400}
-    (e : a ++ cat3 x y z = u) : trunc u = z :=
-  (trunc_of_tw_append_eq (n := 384) (by norm_num) e).trans (trunc_cat3 x y z)
+theorem trunc_rootAcc (c : ℕ → BitVec 128) : ∀ j, trunc (rootAcc c j) = c 0
+  | 0 => trunc_eq_self _
+  | j + 1 => by
+    rw [rootAcc, trunc_cast, trunc_append_low (by omega), trunc_rootAcc c j]
 
-/-- A tweaked concatenation of seven values: the low 128 bits are the last value. -/
-theorem trunc_of_tw_cat7_eq {a : BitVec 16} {b : Fin 7 → BitVec 128} {u : BitVec 912}
-    (e : a ++ cat7 b = u) : trunc u = b 6 :=
-  (trunc_of_tw_append_eq (n := 896) (by norm_num) e).trans (trunc_cat7 b)
+/-- The low 128 bits of the root input are the top of chain `0`. -/
+theorem trunc_rootCat (c : Fin 32 → BitVec 128) : trunc (rootCat c) = c 0 := by
+  rw [rootCat, trunc_cast, trunc_rootAcc]
+  rfl
 
 /-- A filter whose members all have the same truncation has at most `2 ^ 128` elements. -/
 theorem card_filter_le_of_imp (p : BitVec 256 → Prop) [DecidablePred p] (a : BitVec 128)
@@ -905,28 +750,20 @@ theorem card_updHash_input_le {h p : Name} (hp : hashParent h = some p) (ξ : Re
     have ht : ¬ t.val = 0 := fun ht => hs k (by simp [coordOf, ht])
     have e1 : coordOf (ch k t) = ch k ⟨t.val - 1, by omega⟩ := by simp [coordOf, ht]
     rw [e1]
-    refine card_filter_le_of_imp _ (trunc u) fun b hb => ?_
-    rw [val_ci_succ _ k t ht] at hb
-    have := trunc_of_tw_eq hb
-    exact (this.trans (congrArg trunc (updHash_snd_self _ _ _))).symm
-  · -- `gh j`
-    refine card_filter_le_of_imp _ (trunc u) fun b hb => ?_
-    rw [val_gc] at hb
-    have := trunc_of_tw_cat3_eq hb
-    exact (this.trans (congrArg trunc (updHash_snd_self _ _ _))).symm
-  · -- `eh l`
-    refine card_filter_le_of_imp _ (trunc u) fun b hb => ?_
-    rw [val_ec] at hb
-    have := trunc_of_tw_cat3_eq hb
-    exact (this.trans (congrArg trunc (updHash_snd_self _ _ _))).symm
+    refine card_filter_le_of_imp _ (u.extractLsb' 64 128) fun b hb => ?_
+    rw [val_ci_succ _ k t ht, updHash_snd_self] at hb
+    exact payload_of_hdr_eq hb
   · -- `rh`
     refine card_filter_le_of_imp _ (trunc u) fun b hb => ?_
     rw [val_rc] at hb
-    have := trunc_of_tw_cat7_eq hb
-    exact (this.trans (congrArg trunc (updHash_snd_self _ _ _))).symm
+    have := congrArg trunc hb
+    rw [trunc_rootCat] at this
+    change trunc ((updHash ξ (ch 0 14) b).2 (ch 0 14).fin) = trunc u at this
+    rw [updHash_snd_self] at this
+    exact this
 
 /-- Source coordinates. -/
-theorem card_updSrc_input_le {h p : Name} (hp : hashParent h = some p) (ξ : Rec) {k : Fin 63}
+theorem card_updSrc_input_le {h p : Name} (hp : hashParent h = some p) (ξ : Rec) {k : Fin 32}
     (hs : coordOf h = src k) (u : BitVec p.len) :
     (Finset.univ.filter fun b : BitVec 128 => val (updSrc ξ k b) p = u).card ≤ 1 := by
   cases h <;> simp only [hashParent, Option.some.injEq, reduceCtorEq] at hp <;> subst hp <;>
@@ -939,7 +776,7 @@ theorem card_updSrc_input_le {h p : Name} (hp : hashParent h = some p) (ξ : Rec
       intro a ha b hb
       simp only [Finset.mem_filter, Finset.mem_univ, true_and, val_ci_zero _ k t ht,
         val_updSrc_self] at ha hb
-      exact (append_inj (n := 128) (ha.trans hb.symm)).2
+      exact (append_inj (ha.trans hb.symm)).1
     · rw [dif_neg ht] at hs
       exact absurd hs (by simp)
   all_goals exact absurd hs (by simp)

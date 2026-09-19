@@ -177,7 +177,7 @@ theorem paperRowHyp : RowHyp where
   two_le := le_trans (by norm_num) numValid_ge
   numCuts_le := by
     rw [numValid, card_validSet, comp_32_target]
-    show 2 * 42088166900081964050093337199455360 ≤ 2 ^ 128
+    show 2 * 44383521204130784290044027201113527 ≤ 2 ^ 128
     norm_num
   trial_le := by show 24 * 2 ^ 20 ≤ 2 ^ 128; norm_num
 
