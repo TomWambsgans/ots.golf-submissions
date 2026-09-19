@@ -374,7 +374,7 @@ theorem IsCut.not_evaluated_hashOf {A : Finset Name} (hA : IsCut A) {a h : Name}
 section
 
 /- Unifying or normalising a hypothesis of the form `p ∈ evaluatedSet A` makes Lean unfold
-`Finset.univ : Finset Name` through the `Fintype` instance (2795 elements), which exhausts the
+`Finset.univ : Finset Name` through the `Fintype` instance (2396 elements), which exhausts the
 recursion depth; `evaluatedSet` is therefore kept opaque in this section. -/
 attribute [local irreducible] evaluatedSet
 

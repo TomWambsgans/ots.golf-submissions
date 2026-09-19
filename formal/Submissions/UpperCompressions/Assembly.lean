@@ -6,7 +6,7 @@ import Submissions.UpperCompressions.StageB
 For every adversary `A` whose experiment costs at most `B ≤ 2 ^ 127` on every path,
 
 ```
-probTrue (experiment forestScheme A) ≤ 2 ε (B - 912),  ε = 2 ^ (-128).
+probTrue (experiment forestScheme A) ≤ 2 ε (B - 782),  ε = 2 ^ (-128).
 ```
 
 The proof follows `DESIGN.md`: key generation is a uniform record (`E_run_keygen`); the
@@ -249,7 +249,7 @@ theorem E_run_experiment (g' : Bool × Cache → ℝ≥0∞) :
 
 /-- The budget after key generation, for the concrete scheme. -/
 theorem costAtMost_rest_forest {B : ℕ} (hB : CostAtMost (experiment forestScheme A) B) :
-    912 ≤ B ∧ ∀ ξ : Rec, CostAtMost (rest A (pkOf ξ, graph.evalRec ξ)) (B - 912) := by
+    782 ≤ B ∧ ∀ ξ : Rec, CostAtMost (rest A (pkOf ξ, graph.evalRec ξ)) (B - 782) := by
   rw [experiment_eq] at hB
   obtain ⟨h1, h2⟩ := costAtMost_keygen_bind forestScheme (rest A) hB
   refine ⟨?_, fun ξ => ?_⟩
@@ -259,12 +259,12 @@ theorem costAtMost_rest_forest {B : ℕ} (hB : CostAtMost (experiment forestSche
         (B - graph.keygenCost) := h2 ξ
     rwa [publicKey_eq_pkOf, graph_keygenCost] at h2'
 
-theorem keygen_le {B : ℕ} (hB : CostAtMost (experiment forestScheme A) B) : 912 ≤ B :=
+theorem keygen_le {B : ℕ} (hB : CostAtMost (experiment forestScheme A) B) : 782 ≤ B :=
   (costAtMost_rest_forest A hB).1
 
 theorem main_bound {B : ℕ} (hB : CostAtMost (experiment forestScheme A) B) (hB' : B ≤ 2 ^ 127) :
-    probTrue (experiment forestScheme A) ≤ κ * ((B - 912 : ℕ) : ℝ≥0∞) := by
-  obtain ⟨h912, hrest⟩ := costAtMost_rest_forest A hB
+    probTrue (experiment forestScheme A) ≤ κ * ((B - 782 : ℕ) : ℝ≥0∞) := by
+  obtain ⟨h782, hrest⟩ := costAtMost_rest_forest A hB
   rw [probTrue_eq, E_run_experiment]
   calc ∑ ξ : Rec, w * E (run (rest A (pkOf ξ, graph.evalRec ξ)) (kc ξ)) g
       ≤ ∑ ξ : Rec, w * E (run (A.choose (pkOf ξ)) ∅) (fun p =>
@@ -283,15 +283,15 @@ theorem main_bound {B : ℕ} (hB : CostAtMost (experiment forestScheme A) B) (hB
         unfold FA
         refine Finset.sum_congr rfl fun ξ hξ => ?_
         rw [mem_fiberA_asm hξ]
-    _ ≤ ∑ pk, κ * sumW (fiberA pk) * ((B - 912 : ℕ) : ℝ≥0∞) := by
+    _ ≤ ∑ pk, κ * sumW (fiberA pk) * ((B - 782 : ℕ) : ℝ≥0∞) := by
         refine Finset.sum_le_sum fun pk _ => ?_
-        refine stageA_master A pk (B - 912) ((Nat.sub_le B 912).trans hB') fun ξ hξ => ?_
+        refine stageA_master A pk (B - 782) ((Nat.sub_le B 782).trans hB') fun ξ hξ => ?_
         have h := hrest ξ
         rw [mem_fiberA_asm hξ] at h
         unfold rest at h
         dsimp only at h
         exact h
-    _ = κ * ((B - 912 : ℕ) : ℝ≥0∞) := by
+    _ = κ * ((B - 782 : ℕ) : ℝ≥0∞) := by
         rw [← Finset.sum_mul, ← Finset.mul_sum, sum_sumW_fiberA, mul_one]
 
 end Forest

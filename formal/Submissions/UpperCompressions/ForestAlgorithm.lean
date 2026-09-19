@@ -8,7 +8,7 @@ import Submissions.UpperCompressions.Deterministic
 # The verified forest under the generic algorithm interface
 
 The forest satisfies the generic challenge: perfect correctness, signing failure at most
-`2⁻¹²⁸`, 127-bit strong security, and verification within 106 compressions on every path.
+`2⁻¹²⁸`, 127-bit strong security, and verification within 104 compressions on every path.
 -/
 
 open OracleSpec OracleComp ENNReal
@@ -32,11 +32,11 @@ theorem secure : scheme.Secure :=
   (AlgorithmAdapter.secure_iff Forest.forestScheme).2 Forest.forestScheme_secure
 
 /-- This bound covers all public keys, messages and signatures, including rejecting inputs. -/
-theorem cost : scheme.VerifyCostAtMost 106 := by
-  apply AlgorithmAdapter.verifyCost Forest.forestScheme (v := 105) (by decide)
+theorem cost : scheme.VerifyCostAtMost 104 := by
+  apply AlgorithmAdapter.verifyCost Forest.forestScheme (v := 103) (by decide)
   intro i
   have h := Forest.forestScheme_verifyCost i
-  change 1 + Forest.forestScheme.graph.reconstructCost (Forest.forestScheme.sets i) = 106 at h
+  change 1 + Forest.forestScheme.graph.reconstructCost (Forest.forestScheme.sets i) = 104 at h
   omega
 
 theorem keygen_cost : scheme.KeygenCostAtMost keygenBudget :=

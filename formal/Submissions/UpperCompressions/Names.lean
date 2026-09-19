@@ -4,8 +4,8 @@ import Submissions.UpperCompressions.Semantics
 /-!
 # The concrete scheme: nodes and the computation graph
 
-The scheme of Section 8 of the paper hangs 63 hash chains of length 14 under a tree with 21
-group digests, 7 subtree digests and a root.  Every hash node outputs 256 bits; the 128-bit values
+The scheme hangs 54 hash chains of length 14 under a tree with 18 group digests, 6 subtree
+digests and a root.  Every hash node outputs 256 bits; the 128-bit values
 of the paper are separate deterministic truncation nodes, and the inputs of the grouping hashes
 are separate concatenation nodes.
 
@@ -28,7 +28,7 @@ hash node `h` starts with the 16-bit tweak `tw h` (the index of `h`), in the hig
 | `ec l` | `tw (eh l) ++ g_{3l} ‖ g_{3l+1} ‖ g_{3l+2}` | 400 | det |
 | `eh l` | `H(ec l)` | 256 | hash |
 | `ev l` | `e_l` = first 128 bits of `eh l` | 128 | det |
-| `rc` | `tw rh ++ e_0 ‖ ⋯ ‖ e_6` | 912 | det |
+| `rc` | `tw rh ++ e_0 ‖ ⋯ ‖ e_5` | 784 | det |
 | `rh` | the root `H(rc)` | 256 | hash |
 -/
 
@@ -47,39 +47,39 @@ namespace Forest
 
 /-- Node names. -/
 inductive Name where
-  | src (k : Fin 63)
-  | ci (k : Fin 63) (t : Fin 14)
-  | ch (k : Fin 63) (t : Fin 14)
-  | cv (k : Fin 63) (t : Fin 14)
-  | gc (j : Fin 21)
-  | gh (j : Fin 21)
-  | gv (j : Fin 21)
-  | ec (l : Fin 7)
-  | eh (l : Fin 7)
-  | ev (l : Fin 7)
+  | src (k : Fin 54)
+  | ci (k : Fin 54) (t : Fin 14)
+  | ch (k : Fin 54) (t : Fin 14)
+  | cv (k : Fin 54) (t : Fin 14)
+  | gc (j : Fin 18)
+  | gh (j : Fin 18)
+  | gv (j : Fin 18)
+  | ec (l : Fin 6)
+  | eh (l : Fin 6)
+  | ev (l : Fin 6)
   | rc
   | rh
   deriving DecidableEq
 
 /-- Number of nodes. -/
-def N : ℕ := 2795
+def N : ℕ := 2396
 
 namespace Name
 
 /-- Topological index. -/
 def idx : Name → ℕ
   | src k => k
-  | ci k t => 63 + 189 * t + k
-  | ch k t => 126 + 189 * t + k
-  | cv k t => 189 + 189 * t + k
-  | gc j => 2709 + j
-  | gh j => 2730 + j
-  | gv j => 2751 + j
-  | ec l => 2772 + l
-  | eh l => 2779 + l
-  | ev l => 2786 + l
-  | rc => 2793
-  | rh => 2794
+  | ci k t => 54 + 162 * t + k
+  | ch k t => 108 + 162 * t + k
+  | cv k t => 162 + 162 * t + k
+  | gc j => 2322 + j
+  | gh j => 2340 + j
+  | gv j => 2358 + j
+  | ec l => 2376 + l
+  | eh l => 2382 + l
+  | ev l => 2388 + l
+  | rc => 2394
+  | rh => 2395
 
 theorem idx_lt (n : Name) : n.idx < N := by
   cases n <;> simp only [idx, N] <;> omega
@@ -99,7 +99,7 @@ def len : Name → ℕ
   | ec _ => 400
   | eh _ => 256
   | ev _ => 128
-  | rc => 912
+  | rc => 784
   | rh => 256
 
 /-- Query cost of a node: one compression for every hash node except the root, which costs two. -/
@@ -112,14 +112,14 @@ def cost : Name → ℕ
 
 /-- The value node feeding the chain hash `ch k t` (through its input `ci k t`): the source for
 `t = 0`, else `cv k (t-1)`. -/
-def prev (k : Fin 63) (t : Fin 14) : Name :=
+def prev (k : Fin 54) (t : Fin 14) : Name :=
   if h : t.val = 0 then src k else cv k ⟨t.val - 1, by omega⟩
 
 /-- The `a`-th chain of group `j`. -/
-def chainOf (j : Fin 21) (a : Fin 3) : Fin 63 := ⟨3 * j + a, by omega⟩
+def chainOf (j : Fin 18) (a : Fin 3) : Fin 54 := ⟨3 * j + a, by omega⟩
 
 /-- The `a`-th group of subtree `l`. -/
-def groupOf (l : Fin 7) (a : Fin 3) : Fin 21 := ⟨3 * l + a, by omega⟩
+def groupOf (l : Fin 6) (a : Fin 3) : Fin 18 := ⟨3 * l + a, by omega⟩
 
 /-- The unique node reading the value of a node (`none` for the root). -/
 def child : Name → Option Name
@@ -173,21 +173,21 @@ end Name
 
 /-- The inverse of `Name.fin`. -/
 def ofFin (v : Fin N) : Name :=
-  if h₁ : v.val < 63 then .src ⟨v.val, h₁⟩
-  else if h₂ : v.val < 2709 then
-    let m := v.val - 63
-    let t : Fin 14 := ⟨m / 189, by omega⟩
-    let r := m % 189
-    if h₃ : r < 63 then .ci ⟨r, h₃⟩ t
-    else if h₃' : r < 126 then .ch ⟨r - 63, by omega⟩ t
-    else .cv ⟨r - 126, by omega⟩ t
-  else if h₄ : v.val < 2730 then .gc ⟨v.val - 2709, by omega⟩
-  else if h₅ : v.val < 2751 then .gh ⟨v.val - 2730, by omega⟩
-  else if h₆ : v.val < 2772 then .gv ⟨v.val - 2751, by omega⟩
-  else if h₇ : v.val < 2779 then .ec ⟨v.val - 2772, by omega⟩
-  else if h₈ : v.val < 2786 then .eh ⟨v.val - 2779, by omega⟩
-  else if h₉ : v.val < 2793 then .ev ⟨v.val - 2786, by omega⟩
-  else if h₁₀ : v.val < 2794 then .rc
+  if h₁ : v.val < 54 then .src ⟨v.val, h₁⟩
+  else if h₂ : v.val < 2322 then
+    let m := v.val - 54
+    let t : Fin 14 := ⟨m / 162, by omega⟩
+    let r := m % 162
+    if h₃ : r < 54 then .ci ⟨r, h₃⟩ t
+    else if h₃' : r < 108 then .ch ⟨r - 54, by omega⟩ t
+    else .cv ⟨r - 108, by omega⟩ t
+  else if h₄ : v.val < 2340 then .gc ⟨v.val - 2322, by omega⟩
+  else if h₅ : v.val < 2358 then .gh ⟨v.val - 2340, by omega⟩
+  else if h₆ : v.val < 2376 then .gv ⟨v.val - 2358, by omega⟩
+  else if h₇ : v.val < 2382 then .ec ⟨v.val - 2376, by omega⟩
+  else if h₈ : v.val < 2388 then .eh ⟨v.val - 2382, by omega⟩
+  else if h₉ : v.val < 2394 then .ev ⟨v.val - 2388, by omega⟩
+  else if h₁₀ : v.val < 2395 then .rc
   else .rh
 
 theorem Name.idx_injective : Function.Injective Name.idx := by
@@ -199,7 +199,7 @@ theorem Name.idx_injective : Function.Injective Name.idx := by
     omega
 
 theorem fin_ofFin_aux (v : Fin N) : (ofFin v).fin = v := by
-  have hv : v.val < 2795 := v.isLt
+  have hv : v.val < 2396 := v.isLt
   rw [Fin.ext_iff]
   simp only [ofFin]
   split_ifs <;> simp only [Name.fin, Name.idx] <;> omega
@@ -219,8 +219,8 @@ def nameEquiv : Name ≃ Fin N where
 theorem Name.fin_injective : Function.Injective Name.fin := nameEquiv.injective
 
 /-- The finite sum type behind `Name`. -/
-abbrev NameSum := Fin 63 ⊕ (Fin 63 × Fin 14) ⊕ (Fin 63 × Fin 14) ⊕ (Fin 63 × Fin 14) ⊕
-  Fin 21 ⊕ Fin 21 ⊕ Fin 21 ⊕ Fin 7 ⊕ Fin 7 ⊕ Fin 7 ⊕ Unit ⊕ Unit
+abbrev NameSum := Fin 54 ⊕ (Fin 54 × Fin 14) ⊕ (Fin 54 × Fin 14) ⊕ (Fin 54 × Fin 14) ⊕
+  Fin 18 ⊕ Fin 18 ⊕ Fin 18 ⊕ Fin 6 ⊕ Fin 6 ⊕ Fin 6 ⊕ Unit ⊕ Unit
 
 /-- `Name` as a sum type. -/
 def Name.toSum : Name → NameSum
@@ -339,9 +339,9 @@ theorem lenF_fin (n : Name) : lenF n.fin = n.len := by
 /-- Concatenation of three 128-bit values. -/
 def cat3 (a b c : BitVec 128) : BitVec 384 := (a ++ b ++ c).cast (by norm_num)
 
-/-- Concatenation of seven 128-bit values. -/
-def cat7 (a : Fin 7 → BitVec 128) : BitVec 896 :=
-  (a 0 ++ a 1 ++ a 2 ++ a 3 ++ a 4 ++ a 5 ++ a 6).cast (by norm_num)
+/-- Concatenation of six 128-bit values. -/
+def cat6 (a : Fin 6 → BitVec 128) : BitVec 768 :=
+  (a 0 ++ a 1 ++ a 2 ++ a 3 ++ a 4 ++ a 5).cast (by norm_num)
 
 /-- The 128-bit truncation. -/
 def trunc {w : ℕ} (x : BitVec w) : BitVec 128 := x.setWidth 128
@@ -362,7 +362,7 @@ def detVal (n : Name) (x : Asg) : BitVec n.len :=
   | .ec l => tw (Name.eh l) ++ cat3 (trunc (x (Name.gv (Name.groupOf l 0)).fin))
       (trunc (x (Name.gv (Name.groupOf l 1)).fin)) (trunc (x (Name.gv (Name.groupOf l 2)).fin))
   | .ev l => trunc (x (Name.eh l).fin)
-  | .rc => tw Name.rh ++ cat7 fun l => trunc (x (Name.ev l).fin)
+  | .rc => tw Name.rh ++ cat6 fun l => trunc (x (Name.ev l).fin)
   | _ => 0
 
 /-- The value of the parent `p` of a hash node `h` carries the tweak of `h`. -/
@@ -380,7 +380,7 @@ theorem tagNat_detVal {p h : Name} (hc : Name.child p = some h) (hh : h.cost ≠
     exact tagNat_tw_append (n := 384) _ _
   | rc =>
     simp only [Name.child, Option.some.injEq] at hc; subst hc
-    exact tagNat_tw_append (n := 896) _ _
+    exact tagNat_tw_append (n := 768) _ _
   | cv k t =>
     simp only [Name.child] at hc
     split_ifs at hc <;>
@@ -456,8 +456,8 @@ theorem detVal_local (n : Name) (x y : Asg)
     show trunc (x (Name.eh l).fin) = trunc (y (Name.eh l).fin)
     rw [key (Name.eh l) (by simp [Name.parents])]
   | rc =>
-    show tw Name.rh ++ cat7 (fun l => trunc (x (Name.ev l).fin)) =
-      tw Name.rh ++ cat7 (fun l => trunc (y (Name.ev l).fin))
+    show tw Name.rh ++ cat6 (fun l => trunc (x (Name.ev l).fin)) =
+      tw Name.rh ++ cat6 (fun l => trunc (y (Name.ev l).fin))
     have e : (fun l => trunc (x (Name.ev l).fin)) = fun l => trunc (y (Name.ev l).fin) := by
       funext l
       rw [key (Name.ev l) (Finset.mem_image_of_mem _ (Finset.mem_univ _))]
@@ -549,7 +549,7 @@ theorem graph_isSource_fin (n : Name) :
     (graph.kind n.fin).IsSource ↔ ∃ k, n = .src k := by
   rw [graph_kind_fin]; exact kindOf_isSource _ _ _
 
-theorem Name.len_prev (k : Fin 63) (t : Fin 14) : (Name.prev k t).len = 128 := by
+theorem Name.len_prev (k : Fin 54) (t : Fin 14) : (Name.prev k t).len = 128 := by
   unfold Name.prev; split_ifs <;> rfl
 
 theorem graph_nodeCost_fin (n : Name) : graph.nodeCost n.fin = n.cost := by
@@ -558,8 +558,8 @@ theorem graph_nodeCost_fin (n : Name) : graph.nodeCost n.fin = n.cost := by
   cases n <;> simp only [kindOf, graph_len_fin] <;>
     simp [Name.cost, Name.len, blockCost, blockBits]
 
-theorem graph_keygenCost : graph.keygenCost = 912 := by
-  show ∑ v : Fin N, graph.nodeCost v = 912
+theorem graph_keygenCost : graph.keygenCost = 782 := by
+  show ∑ v : Fin N, graph.nodeCost v = 782
   rw [← Fintype.sum_equiv nameEquiv (fun n => graph.nodeCost n.fin) (fun v => graph.nodeCost v)
     (fun _ => rfl)]
   simp only [graph_nodeCost_fin]

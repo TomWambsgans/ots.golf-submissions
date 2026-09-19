@@ -3,9 +3,10 @@ import Submissions.UpperCompressions.Cuts
 /-!
 # The concrete scheme as a `Scheme`
 
-`forestScheme` is the scheme of Section 8 of the paper: the graph of `Forest.Names`, with the
-`2 ^ 115` disclosure sets chosen injectively from the family of `Forest.Cuts`.  Every signature
-verifies in `106` compressions (`forestScheme_verifyCost`).
+`forestScheme` is the 54-chain forest (the paper's forest with six subtrees): the graph of
+`Forest.Names`, with the `2 ^ 115` disclosure sets chosen injectively from the family of
+`Forest.Cuts`.  Every signature
+verifies in `104` compressions (`forestScheme_verifyCost`).
 -/
 
 open OracleSpec OracleComp ENNReal
@@ -61,12 +62,12 @@ def forestScheme : Scheme where
 theorem isCut_setsName (i : Fin (2 ^ 115)) : IsCut (setsName i) :=
   isCut_of_mem_family (setsName_mem i)
 
-theorem cost_setsName (i : Fin (2 ^ 115)) : ∑ n ∈ evaluatedSet (setsName i), n.cost = 105 :=
+theorem cost_setsName (i : Fin (2 ^ 115)) : ∑ n ∈ evaluatedSet (setsName i), n.cost = 103 :=
   cost_of_mem_family (setsName_mem i)
 
-/-- Every signature verifies in `106` compressions. -/
-theorem forestScheme_verifyCost (i : Fin numCuts) : forestScheme.verifyCost i = 106 := by
-  show idxCost + graph.reconstructCost (fins (setsName i)) = 106
+/-- Every signature verifies in `104` compressions. -/
+theorem forestScheme_verifyCost (i : Fin numCuts) : forestScheme.verifyCost i = 104 := by
+  show idxCost + graph.reconstructCost (fins (setsName i)) = 104
   have hidx : idxCost = 1 := by decide
   rw [reconstructCost_eq, hidx]
   have h := cost_setsName i

@@ -76,7 +76,7 @@ theorem admissible : scheme.Admissible :=
   WireAdapter.admissible GenericUpperForest.scheme decode decode_encode canonical
     GenericUpperForest.admissible
 
-theorem cost : scheme.VerifyCostAtMost 106 :=
-  WireAdapter.verifyCost GenericUpperForest.scheme decode 106 GenericUpperForest.cost
+theorem cost : scheme.VerifyCostAtMost 104 :=
+  WireAdapter.verifyCost GenericUpperForest.scheme decode 104 GenericUpperForest.cost
 
 end OptimalOTS.GenericUpperForest.Wire

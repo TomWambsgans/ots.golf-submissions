@@ -76,10 +76,9 @@ theorem cat3_inj {a b c a' b' c' : BitVec 128} (h : cat3 a b c = cat3 a' b' c') 
   obtain ⟨h1, h2⟩ := bv_append_inj h12
   exact ⟨h1, h2, h3⟩
 
-theorem cat7_inj {a b : Fin 7 → BitVec 128} (h : cat7 a = cat7 b) : a = b := by
-  unfold cat7 at h
-  obtain ⟨h0123456, h6⟩ := bv_append_inj (cast_injective _ h)
-  obtain ⟨h012345, h5⟩ := bv_append_inj h0123456
+theorem cat6_inj {a b : Fin 6 → BitVec 128} (h : cat6 a = cat6 b) : a = b := by
+  unfold cat6 at h
+  obtain ⟨h012345, h5⟩ := bv_append_inj (cast_injective _ h)
   obtain ⟨h01234, h4⟩ := bv_append_inj h012345
   obtain ⟨h0123, h3⟩ := bv_append_inj h01234
   obtain ⟨h012, h2⟩ := bv_append_inj h0123
@@ -107,7 +106,7 @@ theorem hashParent_cases {h p : Name} (hp : hashParent h = some p) :
 theorem cost_hashParent {h p : Name} (hp : hashParent h = some p) : p.cost = 0 := by
   cases h <;> simp only [hashParent, Option.some.injEq, reduceCtorEq] at hp <;> subst hp <;> rfl
 
-theorem hashParent_ne_src {h p : Name} (hp : hashParent h = some p) (k : Fin 63) : p ≠ src k := by
+theorem hashParent_ne_src {h p : Name} (hp : hashParent h = some p) (k : Fin 54) : p ≠ src k := by
   cases h <;> simp only [hashParent, Option.some.injEq, reduceCtorEq] at hp <;> subst hp <;>
     exact fun e => nomatch e
 
@@ -118,23 +117,23 @@ theorem hashParent_of_hashOf {v h : Name} (hh : hashOf v = some h) : ∃ p, hash
 theorem cost_of_hashOf {v h : Name} (hh : hashOf v = some h) : v.cost = 0 := by
   cases v <;> simp only [hashOf, reduceCtorEq] at hh <;> rfl
 
-theorem prev_succ (k : Fin 63) (t : Fin 14) (ht : t.val < 13) :
+theorem prev_succ (k : Fin 54) (t : Fin 14) (ht : t.val < 13) :
     prev k ⟨t.val + 1, by omega⟩ = cv k t := by
   simp [prev]
 
-theorem val_gc' (ξ : Rec) (j : Fin 21) :
+theorem val_gc' (ξ : Rec) (j : Fin 18) :
     val ξ (gc j) = tw (gh j) ++ cat3 (val ξ (cv (chainOf j 0) 13)) (val ξ (cv (chainOf j 1) 13))
       (val ξ (cv (chainOf j 2) 13)) := by
   rw [val_gc, val_cv, val_cv, val_cv]
 
-theorem val_ec' (ξ : Rec) (l : Fin 7) :
+theorem val_ec' (ξ : Rec) (l : Fin 6) :
     val ξ (ec l) = tw (eh l) ++ cat3 (val ξ (gv (groupOf l 0))) (val ξ (gv (groupOf l 1)))
       (val ξ (gv (groupOf l 2))) := by
   rw [val_ec, val_gv, val_gv, val_gv]
 
-theorem val_rc' (ξ : Rec) : val ξ rc = tw rh ++ cat7 fun l => val ξ (ev l) := by
+theorem val_rc' (ξ : Rec) : val ξ rc = tw rh ++ cat6 fun l => val ξ (ev l) := by
   rw [val_rc]
-  exact congrArg (fun a => tw rh ++ cat7 a) (funext fun l => (val_ev ξ l).symm)
+  exact congrArg (fun a => tw rh ++ cat6 a) (funext fun l => (val_ev ξ l).symm)
 
 theorem val_of_hashOf (ξ : Rec) {v h : Name} (hh : hashOf v = some h) :
     trunc (val ξ v) = trunc (ξ.2 h.fin) := by
@@ -203,21 +202,21 @@ theorem yv_det (hy : graph.ReconEqs d (fins A) given y) {n : Name} (he : Evaluat
   rw [this]
   simp
 
-theorem yv_cv (hy : graph.ReconEqs d (fins A) given y) {k : Fin 63} {t : Fin 14}
+theorem yv_cv (hy : graph.ReconEqs d (fins A) given y) {k : Fin 54} {t : Fin 14}
     (he : Evaluated A (cv k t)) : yv y (cv k t) = trunc (yv y (ch k t)) := by
   rw [yv_det hy he rfl (by simp)]
   show trunc (y _) = _
   unfold yv
   rw [trunc_cast_eq]
 
-theorem yv_gv (hy : graph.ReconEqs d (fins A) given y) {j : Fin 21}
+theorem yv_gv (hy : graph.ReconEqs d (fins A) given y) {j : Fin 18}
     (he : Evaluated A (gv j)) : yv y (gv j) = trunc (yv y (gh j)) := by
   rw [yv_det hy he rfl (by simp)]
   show trunc (y _) = _
   unfold yv
   rw [trunc_cast_eq]
 
-theorem yv_ev (hy : graph.ReconEqs d (fins A) given y) {l : Fin 7}
+theorem yv_ev (hy : graph.ReconEqs d (fins A) given y) {l : Fin 6}
     (he : Evaluated A (ev l)) : yv y (ev l) = trunc (yv y (eh l)) := by
   rw [yv_det hy he rfl (by simp)]
   show trunc (y _) = _
@@ -225,14 +224,14 @@ theorem yv_ev (hy : graph.ReconEqs d (fins A) given y) {l : Fin 7}
   rw [trunc_cast_eq]
 
 /-- The input of a chain hash: its tweak, then the value before it. -/
-theorem yv_ci (hy : graph.ReconEqs d (fins A) given y) {k : Fin 63} {t : Fin 14}
+theorem yv_ci (hy : graph.ReconEqs d (fins A) given y) {k : Fin 54} {t : Fin 14}
     (he : Evaluated A (ci k t)) : yv y (ci k t) = tw (ch k t) ++ trunc (yv y (prev k t)) := by
   rw [yv_det hy he rfl (by simp)]
   show tw (ch k t) ++ trunc (y (prev k t).fin) = _
   unfold yv
   rw [trunc_cast_eq]
 
-theorem yv_gc (hy : graph.ReconEqs d (fins A) given y) {j : Fin 21}
+theorem yv_gc (hy : graph.ReconEqs d (fins A) given y) {j : Fin 18}
     (he : Evaluated A (gc j)) :
     yv y (gc j) = tw (gh j) ++ cat3 (yv y (cv (chainOf j 0) 13)) (yv y (cv (chainOf j 1) 13))
       (yv y (cv (chainOf j 2) 13)) := by
@@ -241,7 +240,7 @@ theorem yv_gc (hy : graph.ReconEqs d (fins A) given y) {j : Fin 21}
   refine congrArg (fun a => tw (gh j) ++ a) ?_
   congr 1 <;> exact trunc_eq_cast (graph_len_fin _) _
 
-theorem yv_ec (hy : graph.ReconEqs d (fins A) given y) {l : Fin 7}
+theorem yv_ec (hy : graph.ReconEqs d (fins A) given y) {l : Fin 6}
     (he : Evaluated A (ec l)) :
     yv y (ec l) = tw (eh l) ++ cat3 (yv y (gv (groupOf l 0))) (yv y (gv (groupOf l 1)))
       (yv y (gv (groupOf l 2))) := by
@@ -251,10 +250,10 @@ theorem yv_ec (hy : graph.ReconEqs d (fins A) given y) {l : Fin 7}
   congr 1 <;> exact trunc_eq_cast (graph_len_fin _) _
 
 theorem yv_rc (hy : graph.ReconEqs d (fins A) given y) (he : Evaluated A rc) :
-    yv y rc = tw rh ++ cat7 fun l => yv y (ev l) := by
+    yv y rc = tw rh ++ cat6 fun l => yv y (ev l) := by
   rw [yv_det hy he rfl (by simp)]
-  show tw rh ++ cat7 (fun l => trunc (y (ev l).fin)) = _
-  exact congrArg (fun a => tw rh ++ cat7 a)
+  show tw rh ++ cat6 (fun l => trunc (y (ev l).fin)) = _
+  exact congrArg (fun a => tw rh ++ cat6 a)
     (funext fun l => trunc_eq_cast (graph_len_fin (ev l)) _)
 
 theorem yv_of_hashOf (hy : graph.ReconEqs d (fins A) given y) {v h : Name}
@@ -265,7 +264,7 @@ theorem yv_of_hashOf (hy : graph.ReconEqs d (fins A) given y) {v h : Name}
   · rw [yv_ev hy he]; exact trunc_128 _
 
 /-- A forged chain input differs from the honest one as soon as the value before it does. -/
-theorem yv_ci_ne (hy : graph.ReconEqs d (fins A) given y) {k : Fin 63} {t : Fin 14}
+theorem yv_ci_ne (hy : graph.ReconEqs d (fins A) given y) {k : Fin 54} {t : Fin 14}
     (he : Evaluated A (ci k t)) {ξ : Rec} (hne : yv y (prev k t) ≠ val ξ (prev k t)) :
     yv y (ci k t) ≠ val ξ (ci k t) := by
   intro heq
@@ -413,7 +412,7 @@ theorem up {A : Finset Name} (hA : IsCut A) {ξ : Rec} {d : Cache}
       refine ih' _ (by have := height_child hch; omega) hcE.2 rfl ?_
       intro heq
       rw [yv_rc hy hcE, val_rc'] at heq
-      exact hne (congrFun (cat7_inj (append_inj (n := 896) heq).2) l)
+      exact hne (congrFun (cat6_inj (append_inj (n := 768) heq).2) l)
     | rc =>
       exact hash_step hA hy hacc (h := rh) rfl rfl hv hne ih'
     | ch k t => exact absurd hvh (by simp [Name.cost])
