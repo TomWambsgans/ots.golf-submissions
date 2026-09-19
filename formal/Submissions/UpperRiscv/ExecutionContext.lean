@@ -54,7 +54,7 @@ theorem cursor_access (s : MachineState) (ready : CursorReady s) (j : ℕ) (hj :
   omega
 
 /-- The immutable input buffers and decoded chain positions used by reconstruction. -/
-structure ExecutionContext (s : MachineState) (index : Idx paperParams)
+structure ExecutionContext (s : MachineState) (index : Idx paperDagFormat)
     (payload : List Bool) (pk : PublicKey paperParams) : Prop where
   positionBase : s.getReg .x8 = BitVec.ofNat 64 positionsBase
   positions : PositionMemory s (fixedPositions index)
@@ -75,7 +75,7 @@ theorem CursorAt.ready {s : MachineState} {cursor : ℕ}
   rfl
 
 /-- A disclosed word is read from the same bit offset as the specification. -/
-theorem ExecutionContext.payload_word {s : MachineState} {index : Idx paperParams}
+theorem ExecutionContext.payload_word {s : MachineState} {index : Idx paperDagFormat}
     {payload : List Bool} {pk : PublicKey paperParams}
     (context : ExecutionContext s index payload pk) (cursor : ℕ)
     (atCursor : CursorAt s cursor) (aligned : cursor % 128 = 0)

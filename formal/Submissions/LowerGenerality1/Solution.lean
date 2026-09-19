@@ -16,7 +16,7 @@ namespace OptimalOTS
 
 /-- Whole-word operations force a verification costing at least 93. -/
 theorem wholeWordVerificationLowerBound_paper :
-    WholeWordVerificationLowerBound paperParams 93 := by
+    WholeWordVerificationLowerBound paperParams paperDagFormat 93 := by
   intro S hwords hS
   have hdis := S.disclosureBound41_of_wholeWords hwords
   by_contra hn
@@ -35,7 +35,7 @@ theorem wholeWordVerificationLowerBound_paper :
 
 /-- The exported restricted lower-track certificate. -/
 theorem Challenge.LowerGenerality1.candidate :
-    WholeWordVerificationLowerBound paperParams 93 :=
+    WholeWordVerificationLowerBound paperParams paperDagFormat 93 :=
   wholeWordVerificationLowerBound_paper
 
 end OptimalOTS

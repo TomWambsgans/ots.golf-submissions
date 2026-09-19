@@ -17,7 +17,7 @@ theorem chainNode_injective (positions : Fin 63 → Fin 15) :
   · exact equal
   · exact equal.1
 
-theorem fixedCut_card_eq (i : Idx paperParams) : (cutOf (fixedChoice i)).card = 41 := by
+theorem fixedCut_card_eq (i : Idx paperDagFormat) : (cutOf (fixedChoice i)).card = 41 := by
   have disjointEG : Disjoint (fixedE.image Name.ev) (fixedG.image Name.gv) := by
     apply Finset.disjoint_left.mpr
     intro n hn hm
@@ -43,7 +43,7 @@ theorem fixedCut_card_eq (i : Idx paperParams) : (cutOf (fixedChoice i)).card = 
     Finset.card_image_of_injective _ (chainNode_injective _),
     card_active fixedE fixedG fixedG_allowed, fixedE_card, fixedG_card]
 
-theorem fixed_revealBits (i : Idx paperParams) :
+theorem fixed_revealBits (i : Idx paperDagFormat) :
     forestScheme.graph.revealBits (forestScheme.sets i) = 5248 := by
   change graph.revealBits (fins (cutOf (fixedChoice i))) = 5248
   rw [revealBits_eq, Finset.sum_const_nat (fun n hn => (fixedCut_isCut i).values n hn),
@@ -54,7 +54,7 @@ end OptimalOTS.Forest
 namespace OptimalOTS.RiscvUpperForest.Wire
 
 /-- The machine's fixed-length check is exactly the specification's payload-length check. -/
-theorem payload_length_iff (bits : List Bool) (i : Idx paperParams) :
+theorem payload_length_iff (bits : List Bool) (i : Idx paperDagFormat) :
     (decode bits).2.length = Forest.forestScheme.graph.revealBits (Forest.forestScheme.sets i) ↔
       bits.length = 5376 := by
   rw [Forest.fixed_revealBits]

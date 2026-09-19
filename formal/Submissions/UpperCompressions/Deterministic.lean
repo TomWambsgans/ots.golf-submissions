@@ -12,7 +12,7 @@ namespace OptimalOTS
 
 namespace Deterministic
 
-variable {P : Params} {α β : Type}
+variable {P : Params} {F : DagFormat} {α β : Type}
 
 theorem of_pure (x : α) : Deterministic P (pure x : OracleComp (Spec P) α) := trivial
 
@@ -48,7 +48,7 @@ end Deterministic
 
 namespace Graph
 
-variable {P : Params} (G : Graph P)
+variable {P : Params} {F : DagFormat} (G : Graph P)
 
 theorem deterministic_evalNode (x : G.Assignment) (v : Fin G.size)
     (s : OracleComp (Spec P) (BitVec (G.len v))) (hs : Deterministic P s) :
@@ -72,9 +72,9 @@ end Graph
 
 namespace Scheme
 
-variable {P : Params} (S : Scheme P)
+variable {P : Params} {F : DagFormat} (S : Scheme P F)
 
-theorem deterministic_verify (pk : PublicKey P) (m : Message P) (σ : Signature P) :
+theorem deterministic_verify (pk : PublicKey P) (m : Message P) (σ : Signature F) :
     Deterministic P (S.verify pk m σ) := by
   unfold Scheme.verify index
   refine Deterministic.bind (Deterministic.map (Deterministic.hash _) _) fun i => ?_

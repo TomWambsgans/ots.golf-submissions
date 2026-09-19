@@ -47,7 +47,7 @@ structure TreeRegs (s : MachineState) : Prop where
   call : s.getReg .x5 = Riscv.hashCall
   length : s.getReg .x11 = 400
 
-variable (index : Idx paperParams) (payload : List Bool) (pk : PublicKey paperParams)
+variable (index : Idx paperDagFormat) (payload : List Bool) (pk : PublicKey paperParams)
 
 structure TreeCtx (s : MachineState) (cursor : ℕ) (rem : List Name) : Prop where
   context : ExecutionContext s index payload pk

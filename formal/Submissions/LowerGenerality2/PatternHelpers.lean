@@ -28,10 +28,10 @@ theorem expectedValue_ge_indicator {α : Type} (p : ProbComp α)
 theorem fresh_mass_paper {c : Cache paperParams} {D : Finset Query}
     (hc : HasSupport c D) (hD : D.card ≤ 2 ^ 22) :
     (9 / 10 : ℝ≥0∞) ≤ E ($ᵗ BitVec paperParams.msgBits)
-      (fun m => if FreshMessage c m then 1 else 0) := by
-  have hb := uniform_nonfresh_le hc
+      (fun m => if FreshMessage paperDagFormat c m then 1 else 0) := by
+  have hb := uniform_nonfresh_le (F := paperDagFormat) hc
   have hb' : E ($ᵗ BitVec paperParams.msgBits)
-      (fun m => if ¬ FreshMessage c m then (1 : ℝ≥0∞) else 0) ≤ 1 / 10 := by
+      (fun m => if ¬ FreshMessage paperDagFormat c m then (1 : ℝ≥0∞) else 0) ≤ 1 / 10 := by
     apply hb.trans
     calc (D.card : ℝ≥0∞) / 2 ^ paperParams.msgBits
         ≤ ((2 ^ 22 : ℕ) : ℝ≥0∞) / 2 ^ paperParams.msgBits :=
@@ -39,14 +39,14 @@ theorem fresh_mass_paper {c : Cache paperParams} {D : Finset Query}
       _ ≤ _ := by
         apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
         norm_num [ENNReal.toReal_div, paperParams]
-  have h := uniform_complement_ge paperParams.msgBits (fun m => ¬ FreshMessage c m) _ hb'
+  have h := uniform_complement_ge paperParams.msgBits (fun m => ¬ FreshMessage paperDagFormat c m) _ hb'
   simpa only [not_not, nine_tenths] using h
 
 theorem fresh_new_mass_paper {c : Cache paperParams} {D : Finset Query}
     (hc : HasSupport c D) (hD : D.card ≤ 2 ^ 22) (m₁ : Message paperParams) :
     (9 / 10 : ℝ≥0∞) ≤ E ($ᵗ BitVec paperParams.msgBits)
-      (fun m => if FreshMessage c m ∧ m ≠ m₁ then 1 else 0) := by
-  have h := uniform_fresh_ne_ge hc m₁
+      (fun m => if FreshMessage paperDagFormat c m ∧ m ≠ m₁ then 1 else 0) := by
+  have h := uniform_fresh_ne_ge (F := paperDagFormat) hc m₁
   apply le_trans _ h
   have hb : ((D.card + 1 : ℕ) : ℝ≥0∞) / 2 ^ paperParams.msgBits ≤ 1 / 10 := by
     calc ((D.card + 1 : ℕ) : ℝ≥0∞) / 2 ^ paperParams.msgBits

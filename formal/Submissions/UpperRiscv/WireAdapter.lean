@@ -110,14 +110,14 @@ theorem rejectsOversized (n : ℕ) (h : S.RejectsOversized n) :
   exact h pk m (decode bits) (by simpa only [hc] using hsize) accepted
 
 include inverse canonical in
-theorem admissible (L : AlgorithmScheme.Limits) (ε : ℝ≥0∞) (h : S.Admissible L ε) :
-    (scheme S decode).Admissible L ε where
+theorem admissible (ε : ℝ≥0∞) (h : S.Admissible ε) :
+    (scheme S decode).Admissible ε where
   failure_lt_one := h.failure_lt_one
   correct := correct S decode inverse h.correct
   verifyDeterministic := fun pk m bits => h.verifyDeterministic pk m (decode bits)
   signingFailure := signingFailure S decode ε h.signingFailure
-  signatureSize := signatureSize S decode L.signatureBits h.signatureSize
-  rejectsOversized := rejectsOversized S decode canonical L.signatureBits h.rejectsOversized
+  signatureSize := signatureSize S decode P.signatureBits h.signatureSize
+  rejectsOversized := rejectsOversized S decode canonical P.signatureBits h.rejectsOversized
   keygenCost := h.keygenCost
   signCost := fun sk m => AlgorithmCosts.CostAtMost.map (h.signCost sk m) _
 

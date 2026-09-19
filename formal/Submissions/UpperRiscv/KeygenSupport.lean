@@ -137,7 +137,7 @@ theorem evaluate_cacheConsistent (z : G.Assignment) (c : Cache P) :
 
 end Graph
 
-theorem GScheme.keygen_cacheConsistent {P : Params} (S : GScheme P) (c : Cache P) :
+theorem GScheme.keygen_cacheConsistent {P : Params} {F : DagFormat} (S : GScheme P F) (c : Cache P) :
     ∀ p ∈ support (run P S.keygen c),
       p.1.1 = S.publicKey p.1.2 ∧ S.graph.CacheConsistent p.1.2 p.2 := by
   intro p hp

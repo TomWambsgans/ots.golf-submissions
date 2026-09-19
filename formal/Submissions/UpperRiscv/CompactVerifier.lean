@@ -23,7 +23,7 @@ theorem index_take (bits : List Bool) : ofBits 128 (bits.take 128) = ofBits 128 
 /-- The specification after the accepted index and wire-length checks. -/
 noncomputable def acceptedTail (pk : PublicKey paperParams) (bits : List Bool)
     (answer : BitVec paperParams.hashBits) : OracleComp (Spec paperParams) (Option Bool) :=
-  some <$> (if hi : (answer.setWidth paperParams.idxBits).toNat ∈ validSet paperParams then
+  some <$> (if hi : (answer.setWidth paperDagFormat.idxBits).toNat ∈ validSet paperDagFormat then
       if bits.length = 5376 then (do
         let y ← directReconstruct ⟨_, hi⟩ (bits.drop 128)
         return decide ((y rh.fin).setWidth 128 = pk))
@@ -44,14 +44,14 @@ theorem directVerify_unfold (pk : PublicKey paperParams) (m : Message paperParam
   apply bind_congr_of_forall_mem_support
   intro answer _
   by_cases hi : Accepted (answer.setWidth 128).toNat
-  · have hi' : (answer.setWidth paperParams.idxBits).toNat ∈ validSet paperParams :=
+  · have hi' : (answer.setWidth paperDagFormat.idxBits).toNat ∈ validSet paperDagFormat :=
       (acceptedIdx answer hi).2
     rw [dif_pos hi']
     by_cases hlen : bits.length = 5376
     · rw [if_pos hlen, if_pos ⟨hi, hlen⟩]
     · rw [if_neg hlen, if_neg (fun h => hlen h.2), pure_bind]
       rfl
-  · have hi' : ¬ (answer.setWidth paperParams.idxBits).toNat ∈ validSet paperParams :=
+  · have hi' : ¬ (answer.setWidth paperDagFormat.idxBits).toNat ∈ validSet paperDagFormat :=
       fun h => hi (mem_validSet_accepted h)
     rw [dif_neg hi', if_neg (fun h => hi h.1), pure_bind]
     rfl
@@ -119,12 +119,12 @@ theorem lengths : indexAndChecks.length + (chains.length +
 
 /-- The accepted branch of the specification, as the reader over `order`. -/
 theorem acceptedTail_eq (pk : PublicKey paperParams) (bits : List Bool) (answer : BitVec 256)
-    (hi : (answer.setWidth 128).toNat ∈ validSet paperParams) (hlen : bits.length = 5376) :
+    (hi : (answer.setWidth 128).toNat ∈ validSet paperDagFormat) (hlen : bits.length = 5376) :
     acceptedTail pk bits answer =
       runNodes' ⟨_, hi⟩ (bits.drop 128) order (fun _ => 0) 0 >>= fun r =>
         pure (some (@decide ((r.1 rh.fin).setWidth 128 = pk) (Classical.propDecidable _))) := by
-  have hi' : (@BitVec.setWidth paperParams.hashBits paperParams.idxBits answer).toNat ∈
-      validSet paperParams := hi
+  have hi' : (@BitVec.setWidth paperParams.hashBits paperDagFormat.idxBits answer).toNat ∈
+      validSet paperDagFormat := hi
   unfold acceptedTail
   rw [dif_pos hi', if_pos hlen]
   simp only [map_eq_bind_pure_comp, bind_assoc, Function.comp_apply, pure_bind, directReconstruct,

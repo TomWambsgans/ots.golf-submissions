@@ -9,14 +9,14 @@ open scoped Classical
 
 namespace OptimalOTS.AveragedSigning
 
-def reward {P : Params} (f : Fin P.numSets → ℝ≥0∞) :
-    Option (Nonce P × Fin P.numSets) → ℝ≥0∞
+def reward {P : Params} {F : DagFormat} (f : Fin F.numSets → ℝ≥0∞) :
+    Option (Nonce F × Fin F.numSets) → ℝ≥0∞
   | none => 0
   | some p => f p.2
 
-theorem reward_eq_sum {P : Params} (f : Fin P.numSets → ℝ≥0∞)
-    (r : Option (Nonce P × Fin P.numSets)) :
-    reward f r = ∑ i, FreshSign.reward {i.val} r * f i := by
+theorem reward_eq_sum {P : Params} {F : DagFormat} (f : Fin F.numSets → ℝ≥0∞)
+    (r : Option (Nonce F × Fin F.numSets)) :
+    reward (P := P) f r = ∑ i, FreshSign.reward {i.val} r * f i := by
   cases r with
   | none => simp [reward, FreshSign.reward]
   | some r =>
@@ -34,31 +34,31 @@ theorem E_finset_sum {α ι : Type} (p : ProbComp α) (s : Finset ι)
     E p (fun x => ∑ i ∈ s, f i x) = ∑ i ∈ s, E p (f i) := by
   exact expectedValue_finsetSum p s f
 
-theorem sign_reward_eq (f : Fin paperParams.numSets → ℝ≥0∞)
+theorem sign_reward_eq (f : Fin paperDagFormat.numSets → ℝ≥0∞)
     (m : Message paperParams) (c : Cache paperParams)
-    (hfresh : BareLower.FreshMessage c m) :
-    E (run paperParams (signIdx paperParams m) c) (fun p => reward f p.1) =
-      ENNReal.ofReal (FreshSign.rate paperParams paperParams.trialLimit) * ∑ i, f i := by
+    (hfresh : BareLower.FreshMessage paperDagFormat c m) :
+    E (run paperParams (signIdx paperParams paperDagFormat m) c) (fun p => reward (P := paperParams) f p.1) =
+      ENNReal.ofReal (FreshSign.rate paperParams paperDagFormat paperDagFormat.trialLimit) * ∑ i, f i := by
   simp_rw [reward_eq_sum]
   rw [E_finset_sum]
   simp_rw [E, expectedValue_mul_const]
-  have hsingle : ∀ i : Fin paperParams.numSets,
-      E (run paperParams (signIdx paperParams m) c)
+  have hsingle : ∀ i : Fin paperDagFormat.numSets,
+      E (run paperParams (signIdx paperParams paperDagFormat m) c)
         (fun p => FreshSign.reward {i.val} p.1) =
-      ENNReal.ofReal (FreshSign.rate paperParams paperParams.trialLimit) := by
+      ENNReal.ofReal (FreshSign.rate paperParams paperDagFormat paperDagFormat.trialLimit) := by
     intro i
     rw [signIdx, FreshSign.loop_reward {i.val} (by simp only [Finset.mem_singleton]; intro n hn; simpa only [hn] using i.isLt)
-      (by decide) (by norm_num [paperParams]) (by norm_num [paperParams]) m _ ∅ c
-      (by norm_num [paperParams]) (by intro η _; exact hfresh η)]
+      (by decide) (by norm_num [paperDagFormat]) (by norm_num [paperDagFormat]) m _ ∅ c
+      (by norm_num [paperDagFormat]) (by intro η _; exact hfresh η)]
     simp
-  change (∑ i, E (run paperParams (signIdx paperParams m) c)
+  change (∑ i, E (run paperParams (signIdx paperParams paperDagFormat m) c)
       (fun p => FreshSign.reward {i.val} p.1) * f i) = _
   simp_rw [hsingle]
   rw [Finset.mul_sum]
 
 theorem paper_rate_ge :
     (128 : ℝ) / (129 * (2 : ℝ) ^ 115) ≤
-      FreshSign.rate paperParams paperParams.trialLimit := by
+      FreshSign.rate paperParams paperDagFormat paperDagFormat.trialLimit := by
   have hfail := FreshSign.one_sub_pow_le_reciprocal (p := (1 : ℝ) / 8192)
     (by norm_num) (by norm_num) (2 ^ 20)
   norm_num only [Nat.cast_pow, Nat.cast_ofNat] at hfail

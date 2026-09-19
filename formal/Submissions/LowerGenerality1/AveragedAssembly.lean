@@ -16,7 +16,7 @@ open PatternAttack
 
 open BareLower
 
-variable (S : Scheme paperParams)
+variable (S : Scheme paperParams paperDagFormat)
 
 attribute [local irreducible] signIdx signIdxLoop Scheme.sign Scheme.signLoop
   weakExperiment forge adversary Graph.encode Scheme.hashPattern Scheme.samePattern goodIndices
@@ -24,23 +24,23 @@ attribute [local irreducible] signIdx signIdxLoop Scheme.sign Scheme.signLoop
 theorem signed_stage_ge (hcount : (Finset.univ.image S.hashPattern).card ≤ Nat.choose 131 41)
     (x : S.graph.Assignment) (c : Cache paperParams) (hc : S.graph.CacheConsistent x c)
     (D : Finset Query) (hD : HasSupport c D) (hcard : D.card ≤ 1024)
-    (m : Message paperParams) (hfresh : FreshMessage c m) :
-    (99 / 2800 : ℝ≥0∞) ≤ E (run paperParams (signIdx paperParams m) c)
+    (m : Message paperParams) (hfresh : FreshMessage paperDagFormat c m) :
+    (99 / 2800 : ℝ≥0∞) ≤ E (run paperParams (signIdx paperParams paperDagFormat m) c)
       (fun p => E (run paperParams (afterSign S (2 ^ 122) (S.publicKey x) x m p.1) p.2) win) := by
-  let f := fun i : Fin paperParams.numSets => AveragedSearch.hitRate (S.samePattern i).card
+  let f := fun i : Fin paperDagFormat.numSets => AveragedSearch.hitRate (S.samePattern i).card
   have hsign : (1 / 28 : ℝ≥0∞) ≤
-      E (run paperParams (signIdx paperParams m) c) (fun p => AveragedSigning.reward f p.1) := by
+      E (run paperParams (signIdx paperParams paperDagFormat m) c) (fun p => AveragedSigning.reward (P := paperParams) f p.1) := by
     rw [AveragedSigning.sign_reward_eq f m c hfresh]
     exact AveragedCounting.paper_weighted_rate_ge S hcount
-  have hstage : E (run paperParams (signIdx paperParams m) c)
-      (fun p => AveragedSigning.reward f p.1) * (99 / 100) ≤
-      E (run paperParams (signIdx paperParams m) c)
+  have hstage : E (run paperParams (signIdx paperParams paperDagFormat m) c)
+      (fun p => AveragedSigning.reward (P := paperParams) f p.1) * (99 / 100) ≤
+      E (run paperParams (signIdx paperParams paperDagFormat m) c)
         (fun p => E (run paperParams (afterSign S (2 ^ 122) (S.publicKey x) x m p.1) p.2) win) := by
     rw [← expectedValue_mul_const]
     apply expectedValue_mono_of_support
     intro p hp
-    obtain ⟨hsub, _, hidx⟩ := signIdx_support paperParams m c p hp
-    obtain ⟨D', hD', hcard'⟩ := exists_support_run (signIdx paperParams m)
+    obtain ⟨hsub, _, hidx⟩ := signIdx_support paperParams paperDagFormat m c p hp
+    obtain ⟨D', hD', hcard'⟩ := exists_support_run (signIdx paperParams paperDagFormat m)
       (cost_signIdx S (by decide) m) hD p hp
     have hcard'' : D'.card ≤ 2 ^ 22 := by
       change D'.card ≤ D.card + 2 ^ 20 at hcard'
@@ -64,11 +64,11 @@ theorem choose_stage_ge (hcount : (Finset.univ.image S.hashPattern).card ≤ Nat
     (x : S.graph.Assignment) (c : Cache paperParams) (hc : S.graph.CacheConsistent x c)
     (D : Finset Query) (hD : HasSupport c D) (hcard : D.card ≤ 1024) :
     (9801 / 280000 : ℝ≥0∞) ≤ E ($ᵗ BitVec paperParams.msgBits) (fun m =>
-      E (run paperParams (signIdx paperParams m) c)
+      E (run paperParams (signIdx paperParams paperDagFormat m) c)
         (fun p => E (run paperParams (afterSign S (2 ^ 122) (S.publicKey x) x m p.1) p.2) win)) := by
   have hmass := fresh_mass_paper_99 hD (hcard.trans (by norm_num : 1024 ≤ 2 ^ 22))
-  have h := expectedValue_ge_indicator ($ᵗ BitVec paperParams.msgBits) (FreshMessage c)
-    (fun m => E (run paperParams (signIdx paperParams m) c)
+  have h := expectedValue_ge_indicator ($ᵗ BitVec paperParams.msgBits) (FreshMessage paperDagFormat c)
+    (fun m => E (run paperParams (signIdx paperParams paperDagFormat m) c)
       (fun p => E (run paperParams (afterSign S (2 ^ 122) (S.publicKey x) x m p.1) p.2) win))
     (99 / 2800) (fun m _ hm => signed_stage_ge S hcount x c hc D hD hcard m hm)
   calc
@@ -96,9 +96,9 @@ theorem success_ge_count (hcount : (Finset.univ.image S.hashPattern).card ≤ Na
 
 /-- The whole experiment, including key generation and signing, beats 127-bit security. -/
 theorem budget_lt :
-    ((paperParams.keygenBudget + paperParams.trialLimit + 2 ^ 122 + 2 * 91 + 2 : ℕ) : ℝ≥0∞) /
+    ((paperParams.keygenCost + paperDagFormat.trialLimit + 2 ^ 122 + 2 * 91 + 2 : ℕ) : ℝ≥0∞) /
       2 ^ paperParams.securityBits < 9801 / 280000 := by
   apply (ENNReal.toReal_lt_toReal (by finiteness) (by finiteness)).mp
-  norm_num [ENNReal.toReal_div, paperParams]
+  norm_num [ENNReal.toReal_div, paperParams, paperDagFormat]
 
 end OptimalOTS.AveragedAssembly

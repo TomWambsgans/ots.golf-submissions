@@ -36,16 +36,16 @@ theorem cost : scheme.VerifyCostAtMost 186 := by
   change 1 + Forest.forestScheme.graph.reconstructCost (Forest.forestScheme.sets i) = 186 at h
   omega
 
-theorem keygen_cost : scheme.KeygenCostAtMost AlgorithmScheme.paperLimits.keygenCost :=
+theorem keygen_cost : scheme.KeygenCostAtMost paperParams.keygenCost :=
   AlgorithmAdapter.keygenCost Forest.forestScheme
 
-theorem sign_cost : scheme.SignCostAtMost AlgorithmScheme.paperLimits.signCost :=
+theorem sign_cost : scheme.SignCostAtMost paperParams.signCost :=
   AlgorithmAdapter.signCost Forest.forestScheme (by decide)
 
-theorem signature_size : scheme.SignatureSizeAtMost AlgorithmScheme.paperLimits.signatureBits :=
+theorem signature_size : scheme.SignatureSizeAtMost paperParams.signatureBits :=
   AlgorithmAdapter.signatureSize Forest.forestScheme
 
-theorem rejects_oversized : scheme.RejectsOversized AlgorithmScheme.paperLimits.signatureBits :=
+theorem rejects_oversized : scheme.RejectsOversized paperParams.signatureBits :=
   AlgorithmAdapter.rejectsOversized Forest.forestScheme
 
 /-- Every honestly returned signature verifies under the same oracle. -/
@@ -56,7 +56,7 @@ theorem signing_failure : scheme.SigningFailureAtMost (1 / 2 ^ 128) :=
   GenericAvailability.signingFailure
 
 /-- All generic admission requirements, with the challenge's fixed failure allowance. -/
-theorem admissible : scheme.Admissible AlgorithmScheme.paperLimits (1 / 2 ^ 128) where
+theorem admissible : scheme.Admissible (1 / 2 ^ 128) where
   failure_lt_one := by norm_num
   correct := correct
   verifyDeterministic := GScheme.verifyDeterministic Forest.forestScheme
@@ -68,7 +68,7 @@ theorem admissible : scheme.Admissible AlgorithmScheme.paperLimits (1 / 2 ^ 128)
 
 /-- A complete admissible, strongly secure, 186-compression construction. -/
 theorem certificate :
-    scheme.Admissible AlgorithmScheme.paperLimits (1 / 2 ^ 128) ∧
+    scheme.Admissible (1 / 2 ^ 128) ∧
     scheme.Secure ∧ scheme.VerifyCostAtMost 186 :=
   ⟨admissible, secure, cost⟩
 

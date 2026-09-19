@@ -4,7 +4,7 @@ namespace OptimalOTS.Challenge.LowerGenerality3
 
 /-- Every admissible, secure algorithm under the paper limits needs at least one compression. -/
 theorem candidate :
-    AlgorithmVerificationLowerBound paperParams AlgorithmScheme.paperLimits (1 / 2 ^ 128) 1 := by
+    AlgorithmVerificationLowerBound paperParams (1 / 2 ^ 128) 1 := by
   apply OptimalOTS.LowerGenerality3.paper_lowerBound_one
   norm_num
 

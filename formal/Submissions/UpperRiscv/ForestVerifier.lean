@@ -100,8 +100,8 @@ theorem reconstruct_eq (A : Finset Name) (payload : List Bool) :
 /-- Raw signatures begin with the 128-bit signing nonce. -/
 def verify (pk : PublicKey paperParams) (m : Message paperParams) (bits : List Bool) :
     OracleComp (Spec paperParams) Bool := do
-  let i ← index paperParams m (ofBits 128 (bits.take 128))
-  if hi : i ∈ validSet paperParams then
+  let i ← index paperParams paperDagFormat m (ofBits 128 (bits.take 128))
+  if hi : i ∈ validSet paperDagFormat then
     let A := Forest.setsName ⟨i, hi⟩
     if (bits.drop 128).length = graph.revealBits (fins A) then
       let y ← reconstruct A (bits.drop 128)
@@ -114,9 +114,9 @@ theorem verify_eq (pk : PublicKey paperParams) (m : Message paperParams) (bits :
     verify pk m bits = Wire.scheme.verify pk m bits := by
   change verify pk m bits = Forest.forestScheme.verify pk m (Wire.decode bits)
   unfold verify GScheme.verify Wire.decode
-  apply congrArg (fun f => index paperParams m (ofBits 128 (bits.take 128)) >>= f)
+  apply congrArg (fun f => index paperParams paperDagFormat m (ofBits 128 (bits.take 128)) >>= f)
   funext i
-  by_cases hi : i ∈ validSet paperParams
+  by_cases hi : i ∈ validSet paperDagFormat
   · rw [dif_pos hi, dif_pos hi]
     change (if (bits.drop 128).length = graph.revealBits (fins (setsName ⟨i, hi⟩)) then _ else _) =
       (if (bits.drop 128).length = graph.revealBits (fins (setsName ⟨i, hi⟩)) then _ else _)
@@ -201,7 +201,7 @@ def evaluated (positions : Fin 63 → Fin 15) : Name → Bool
   | .rc | .rh => true
 
 /-- The machine's disclosure predicate agrees with the certified cut. -/
-theorem disclosed_eq (i : Idx paperParams) (n : Name) :
+theorem disclosed_eq (i : Idx paperDagFormat) (n : Name) :
     disclosed (fixedPositions i) n = true ↔ n ∈ Forest.setsName i := by
   rw [Forest.setsName]
   cases n with
@@ -235,7 +235,7 @@ private theorem evaluated_child {A : Finset Name} {n p : Name} (hc : child n = s
   ⟨he.2 p (Above.child hc), fun m hm => he.2 m (Above.step hc hm)⟩
 
 /-- The machine's computation predicate agrees with the certified reconstruction. -/
-theorem evaluated_eq (i : Idx paperParams) (n : Name) :
+theorem evaluated_eq (i : Idx paperDagFormat) (n : Name) :
     evaluated (fixedPositions i) n = true ↔ Evaluated (Forest.setsName i) n := by
   rw [Forest.setsName]
   have chain (k : Fin 63) (t : Fin 14) :

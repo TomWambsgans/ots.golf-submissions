@@ -15,7 +15,7 @@ open scoped Classical
 
 namespace OptimalOTS.GenericCorrectness
 
-variable {P : Params}
+variable {P : Params} {F : DagFormat}
 
 /-- A reconstruction satisfying the cached equations agrees with the original on visited nodes. -/
 theorem reconstruct_eq (G : Graph P) (A : Finset (Fin G.size)) (x y : G.Assignment)
@@ -47,13 +47,13 @@ theorem reconstruct_eq (G : Graph P) (A : Finset (Fin G.size)) (x y : G.Assignme
         simp
 
 /-- Successful signing records its selected index and returns that cut's complete encoding. -/
-theorem sign_result (S : Scheme P) (x : S.graph.Assignment) (m : Message P)
-    (σ : Signature P) (c d : Cache P)
+theorem sign_result (S : Scheme P F) (x : S.graph.Assignment) (m : Message P)
+    (σ : Signature F) (c d : Cache P)
     (h : (some σ, d) ∈ support (run P (S.sign x m) c)) :
-    ∃ i : Fin P.numSets, ∃ w : BitVec P.hashBits,
+    ∃ i : Fin F.numSets, ∃ w : BitVec P.hashBits,
       σ.2 = S.graph.encode (S.sets i) x ∧
-      d ⟨P.msgBits + P.nonceBits, m ++ σ.1⟩ = some w ∧
-      (w.setWidth P.idxBits).toNat = i.val := by
+      d ⟨P.msgBits + F.nonceBits, m ++ σ.1⟩ = some w ∧
+      (w.setWidth F.idxBits).toNat = i.val := by
   rw [sign_eq_map, run_map, support_map, Set.mem_image] at h
   obtain ⟨⟨r, d'⟩, hr, he⟩ := h
   cases r with
@@ -62,17 +62,17 @@ theorem sign_result (S : Scheme P) (x : S.graph.Assignment) (m : Message P)
     obtain ⟨η, i⟩ := r
     simp only [Option.map_some, Prod.mk.injEq, Option.some.injEq] at he
     rcases he with ⟨he, rfl⟩
-    obtain ⟨w, hw, hi⟩ := (signIdx_support P m c _ hr).2.2 η i rfl
+    obtain ⟨w, hw, hi⟩ := (signIdx_support P F m c _ hr).2.2 η i rfl
     cases he
     exact ⟨i, w, rfl, hw, hi⟩
 
 /-- A signature from a consistent assignment verifies under any extension of its signing cache. -/
-theorem verify_accepts (S : Scheme P) (x : S.graph.Assignment) (m : Message P)
-    (σ : Signature P) (c : Cache P) (hc : S.graph.CacheConsistent x c)
-    (i : Fin P.numSets) (w : BitVec P.hashBits)
+theorem verify_accepts (S : Scheme P F) (x : S.graph.Assignment) (m : Message P)
+    (σ : Signature F) (c : Cache P) (hc : S.graph.CacheConsistent x c)
+    (i : Fin F.numSets) (w : BitVec P.hashBits)
     (hσ : σ.2 = S.graph.encode (S.sets i) x)
-    (hw : c ⟨P.msgBits + P.nonceBits, m ++ σ.1⟩ = some w)
-    (hi : (w.setWidth P.idxBits).toNat = i.val) :
+    (hw : c ⟨P.msgBits + F.nonceBits, m ++ σ.1⟩ = some w)
+    (hi : (w.setWidth F.idxBits).toNat = i.val) :
     ∀ p ∈ support (run P (S.verify (S.publicKey x) m σ) c), p.1 = true := by
   intro p hp
   unfold Scheme.verify at hp
@@ -101,7 +101,7 @@ theorem verify_accepts (S : Scheme P) (x : S.graph.Assignment) (m : Message P)
 
 /-- Every DAG scheme's generic adapter is perfectly correct, including for messages selected
 as an arbitrary function of the public key. Signing failure is handled by the availability bound. -/
-theorem correct (S : Scheme P) : S.toAlgorithm.Correct := by
+theorem correct (S : Scheme P F) : S.toAlgorithm.Correct := by
   intro message
   dsimp only [Scheme.toAlgorithm]
   unfold probTrue

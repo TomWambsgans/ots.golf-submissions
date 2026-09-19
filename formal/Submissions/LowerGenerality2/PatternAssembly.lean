@@ -13,14 +13,14 @@ namespace OptimalOTS.PatternAttack
 
 open BareLower
 
-variable (S : Scheme paperParams)
+variable (S : Scheme paperParams paperDagFormat)
 
 attribute [local irreducible] signIdx signIdxLoop Scheme.sign Scheme.signLoop
   weakExperiment forge adversary Graph.encode Scheme.hashPattern Scheme.samePattern goodIndices
 
 /-- The continuation after the signer has selected its nonce and disclosure index. -/
 def afterSign (T : ℕ) (pk : PublicKey paperParams) (x : S.graph.Assignment)
-    (m : Message paperParams) (r : Option (Nonce paperParams × Fin paperParams.numSets)) :
+    (m : Message paperParams) (r : Option (Nonce paperDagFormat × Fin paperDagFormat.numSets)) :
     OracleComp (Spec paperParams) Bool := do
   let σ := r.map fun p => (p.1, S.graph.encode (S.sets p.2) x)
   let out ← forge S T m σ
@@ -31,13 +31,13 @@ theorem experiment_eq (T : ℕ) :
     weakExperiment S (adversary S T) = (do
       let (pk,x) ← S.keygen
       let m ← sampleBits paperParams paperParams.msgBits
-      let r ← signIdx paperParams m
+      let r ← signIdx paperParams paperDagFormat m
       afterSign S T pk x m r) := by
   simp only [weakExperiment, adversary, sign_eq_map, afterSign,
     map_eq_bind_pure_comp, bind_assoc, pure_bind, Function.comp_apply]
 
 theorem afterSign_some (T : ℕ) (x : S.graph.Assignment) (m : Message paperParams)
-    (η : Nonce paperParams) (i : Fin paperParams.numSets) :
+    (η : Nonce paperDagFormat) (i : Fin paperDagFormat.numSets) :
     afterSign S T (S.publicKey x) x m (some (η,i)) =
       forge S T m (some (η,S.graph.encode (S.sets i) x)) >>= check S (S.publicKey x) m := by
   simp only [afterSign, Option.map_some, Option.isNone_some, Bool.false_or, check]
@@ -46,20 +46,20 @@ theorem afterSign_some (T : ℕ) (x : S.graph.Assignment) (m : Message paperPara
 theorem signed_stage_ge (hcost : ∀ i, S.verifyCost i ≤ 17)
     (x : S.graph.Assignment) (c : Cache paperParams) (hc : S.graph.CacheConsistent x c)
     (D : Finset Query) (hD : HasSupport c D) (hcard : D.card ≤ 1024)
-    (m : Message paperParams) (hfresh : FreshMessage c m) :
-    (1 / 20 : ℝ≥0∞) ≤ E (run paperParams (signIdx paperParams m) c)
+    (m : Message paperParams) (hfresh : FreshMessage paperDagFormat c m) :
+    (1 / 20 : ℝ≥0∞) ≤ E (run paperParams (signIdx paperParams paperDagFormat m) c)
       (fun p => E (run paperParams (afterSign S (2 ^ 122) (S.publicKey x) x m p.1) p.2) win) := by
   have hsign := FreshSign.paper_reward_ge_half (goodIndices S) (goodIndices_lt S)
     (card_goodIndices S hcost) m c hfresh
-  have hstage : E (run paperParams (signIdx paperParams m) c)
+  have hstage : E (run paperParams (signIdx paperParams paperDagFormat m) c)
       (fun p => FreshSign.reward (goodIndices S) p.1) * (1 / 10) ≤
-      E (run paperParams (signIdx paperParams m) c)
+      E (run paperParams (signIdx paperParams paperDagFormat m) c)
         (fun p => E (run paperParams (afterSign S (2 ^ 122) (S.publicKey x) x m p.1) p.2) win) := by
     rw [← expectedValue_mul_const]
     apply expectedValue_mono_of_support
     intro p hp
-    obtain ⟨hsub, _, hidx⟩ := signIdx_support paperParams m c p hp
-    obtain ⟨D', hD', hcard'⟩ := exists_support_run (signIdx paperParams m)
+    obtain ⟨hsub, _, hidx⟩ := signIdx_support paperParams paperDagFormat m c p hp
+    obtain ⟨D', hD', hcard'⟩ := exists_support_run (signIdx paperParams paperDagFormat m)
       (cost_signIdx S (by decide) m) hD p hp
     have hcard'' : D'.card ≤ 2 ^ 22 := by
       change D'.card ≤ D.card + 2 ^ 20 at hcard'
@@ -84,11 +84,11 @@ theorem choose_stage_ge (hcost : ∀ i, S.verifyCost i ≤ 17)
     (x : S.graph.Assignment) (c : Cache paperParams) (hc : S.graph.CacheConsistent x c)
     (D : Finset Query) (hD : HasSupport c D) (hcard : D.card ≤ 1024) :
     (9 / 200 : ℝ≥0∞) ≤ E ($ᵗ BitVec paperParams.msgBits) (fun m =>
-      E (run paperParams (signIdx paperParams m) c)
+      E (run paperParams (signIdx paperParams paperDagFormat m) c)
         (fun p => E (run paperParams (afterSign S (2 ^ 122) (S.publicKey x) x m p.1) p.2) win)) := by
   have hmass := fresh_mass_paper hD (hcard.trans (by norm_num : 1024 ≤ 2 ^ 22))
-  have h := expectedValue_ge_indicator ($ᵗ BitVec paperParams.msgBits) (FreshMessage c)
-    (fun m => E (run paperParams (signIdx paperParams m) c)
+  have h := expectedValue_ge_indicator ($ᵗ BitVec paperParams.msgBits) (FreshMessage paperDagFormat c)
+    (fun m => E (run paperParams (signIdx paperParams paperDagFormat m) c)
       (fun p => E (run paperParams (afterSign S (2 ^ 122) (S.publicKey x) x m p.1) p.2) win))
     (1 / 20) (fun m _ hm => signed_stage_ge S hcost x c hc D hD hcard m hm)
   calc
@@ -117,9 +117,9 @@ theorem success_ge (hcost : ∀ i, S.verifyCost i ≤ 17) :
 
 /-- The elementary pattern attack already beats the required security threshold. -/
 theorem budget_lt :
-    ((paperParams.keygenBudget + paperParams.trialLimit + 2 ^ 122 + 2 * 16 + 2 : ℕ) : ℝ≥0∞) /
+    ((paperParams.keygenCost + paperDagFormat.trialLimit + 2 ^ 122 + 2 * 16 + 2 : ℕ) : ℝ≥0∞) /
       2 ^ paperParams.securityBits < 9 / 200 := by
   apply (ENNReal.toReal_lt_toReal (by finiteness) (by finiteness)).mp
-  norm_num [ENNReal.toReal_div, paperParams]
+  norm_num [ENNReal.toReal_div, paperParams, paperDagFormat]
 
 end OptimalOTS.PatternAttack

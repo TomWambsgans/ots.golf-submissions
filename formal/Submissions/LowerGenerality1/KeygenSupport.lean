@@ -11,7 +11,7 @@ open scoped Classical
 namespace OptimalOTS
 namespace Graph
 
-variable {P : Params} (G : Graph P)
+variable {P : Params} {F : DagFormat} (G : Graph P)
 
 /-- The equations at one node, using answers actually present in the cache. -/
 def CacheEqAt (c : Cache P) (x : G.Assignment) (v : Fin G.size) : Prop :=
@@ -136,7 +136,7 @@ theorem evaluate_cacheConsistent (z : G.Assignment) (c : Cache P) :
 
 end Graph
 
-theorem Scheme.keygen_cacheConsistent {P : Params} (S : Scheme P) (c : Cache P) :
+theorem Scheme.keygen_cacheConsistent {P : Params} {F : DagFormat} (S : Scheme P F) (c : Cache P) :
     ∀ p ∈ support (run P S.keygen c),
       p.1.1 = S.publicKey p.1.2 ∧ S.graph.CacheConsistent p.1.2 p.2 := by
   intro p hp

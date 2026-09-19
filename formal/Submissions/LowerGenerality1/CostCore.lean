@@ -20,7 +20,7 @@ namespace OptimalOTS
 
 section Generic
 
-variable {P : Params} {α β : Type}
+variable {P : Params} {F : DagFormat} {α β : Type}
 
 theorem CostAtMost.mono {oa : OracleComp (Spec P) α} {b b' : ℕ} (h : CostAtMost P oa b)
     (hb : b ≤ b') : CostAtMost P oa b' := by
@@ -90,7 +90,7 @@ end Generic
 
 namespace Graph
 
-variable {P : Params} (G : Graph P)
+variable {P : Params} {F : DagFormat} (G : Graph P)
 
 theorem costAtMost_evalNode (x : G.Assignment) (v : Fin G.size)
     (s : OracleComp (Spec P) (BitVec (G.len v))) (hs : CostAtMost P s 0) :
@@ -137,18 +137,18 @@ end Graph
 
 /-! ## Signing and verification -/
 
-theorem costAtMost_index {P : Params} (hidx : blockCost P (P.msgBits + P.nonceBits) = 1)
-    (m : Message P) (η : Nonce P) : CostAtMost P (index P m η) 1 :=
+theorem costAtMost_index {P : Params} {F : DagFormat} (hidx : blockCost P (P.msgBits + F.nonceBits) = 1)
+    (m : Message P) (η : Nonce F) : CostAtMost P (index P F m η) 1 :=
   (costAtMost_hash _ hidx.le).map _
 
 namespace Scheme
 
-variable {P : Params} (S : Scheme P)
+variable {P : Params} {F : DagFormat} (S : Scheme P F)
 
-theorem costAtMost_keygen : CostAtMost P S.keygen P.keygenBudget :=
+theorem costAtMost_keygen : CostAtMost P S.keygen P.keygenCost :=
   (S.graph.costAtMost_keygen.bind_le (fun _ => costAtMost_pure _ 0) (by simp)).mono S.keygen_le
 
-theorem costAtMost_signLoop (hidx : blockCost P (P.msgBits + P.nonceBits) = 1)
+theorem costAtMost_signLoop (hidx : blockCost P (P.msgBits + F.nonceBits) = 1)
     (x : S.graph.Assignment) (m : Message P) :
     ∀ k tried, CostAtMost P (S.signLoop x m k tried) k
   | 0, _ => costAtMost_pure _ _
@@ -162,13 +162,13 @@ theorem costAtMost_signLoop (hidx : blockCost P (P.msgBits + P.nonceBits) = 1)
         · exact costAtMost_signLoop hidx x m k _
       · exact costAtMost_pure _ _
 
-theorem costAtMost_sign (hidx : blockCost P (P.msgBits + P.nonceBits) = 1)
-    (x : S.graph.Assignment) (m : Message P) : CostAtMost P (S.sign x m) P.trialLimit :=
+theorem costAtMost_sign (hidx : blockCost P (P.msgBits + F.nonceBits) = 1)
+    (x : S.graph.Assignment) (m : Message P) : CostAtMost P (S.sign x m) F.trialLimit :=
   S.costAtMost_signLoop hidx x m _ _
 
-theorem costAtMost_verify (hidx : blockCost P (P.msgBits + P.nonceBits) = 1) {v : ℕ}
+theorem costAtMost_verify (hidx : blockCost P (P.msgBits + F.nonceBits) = 1) {v : ℕ}
     (hv : ∀ i, S.graph.reconstructCost (S.sets i) ≤ v) (pk : PublicKey P) (m : Message P)
-    (σ : Signature P) : CostAtMost P (S.verify pk m σ) (1 + v) := by
+    (σ : Signature F) : CostAtMost P (S.verify pk m σ) (1 + v) := by
   unfold Scheme.verify
   refine (costAtMost_index hidx _ _).bind_le (b₂ := v) (fun i => ?_) le_rfl
   split_ifs with hi

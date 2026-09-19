@@ -19,7 +19,7 @@ noncomputable def submission : Riscv.Submission where
 theorem submission_scheme : submission.scheme = Wire.scheme := rfl
 
 theorem submission_admissible :
-    submission.scheme.Admissible AlgorithmScheme.paperLimits (1 / 2 ^ 128) := by
+    submission.scheme.Admissible (1 / 2 ^ 128) := by
   rw [submission_scheme]
   exact Wire.admissible
 

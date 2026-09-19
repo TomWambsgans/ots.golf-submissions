@@ -23,17 +23,17 @@ def HasSupport {P : Params} (c : CacheP P) (D : Finset Query) : Prop :=
   ∀ q, (c q).isSome → q ∈ D
 
 /-- Every nonce query for this message is absent from the cache. -/
-def FreshMessage {P : Params} (c : CacheP P) (m : BitVec P.msgBits) : Prop :=
-  ∀ η : BitVec P.nonceBits, c ⟨P.msgBits + P.nonceBits, m ++ η⟩ = none
+def FreshMessage {P : Params} (F : DagFormat) (c : CacheP P) (m : BitVec P.msgBits) : Prop :=
+  ∀ η : BitVec F.nonceBits, c ⟨P.msgBits + F.nonceBits, m ++ η⟩ = none
 
 /-- Extract the message prefix of an index-length string. Its value on other
 lengths is harmless because those strings cannot witness a nonce-domain hit. -/
-def messagePrefix (P : Params) (q : Query) : BitVec P.msgBits :=
-  q.2.extractLsb' P.nonceBits P.msgBits
+def messagePrefix (P : Params) (F : DagFormat) (q : Query) : BitVec P.msgBits :=
+  q.2.extractLsb' F.nonceBits P.msgBits
 
-@[simp] theorem messagePrefix_append (P : Params) (m : BitVec P.msgBits)
-    (η : BitVec P.nonceBits) :
-    messagePrefix P ⟨P.msgBits + P.nonceBits, m ++ η⟩ = m :=
+@[simp] theorem messagePrefix_append (P : Params) (F : DagFormat) (m : BitVec P.msgBits)
+    (η : BitVec F.nonceBits) :
+    messagePrefix P F ⟨P.msgBits + F.nonceBits, m ++ η⟩ = m :=
   BitVec.extractLsb'_append_eq_left
 
 @[simp] theorem hasSupport_empty (P : Params) : HasSupport (∅ : CacheP P) ∅ := by
@@ -49,21 +49,21 @@ theorem HasSupport.cacheQuery {P : Params} {c : CacheP P} {D : Finset Query}
   · rw [QueryCache.cacheQuery_of_ne _ _ h] at hq'
     exact Finset.mem_insert_of_mem (hc q' hq')
 
-theorem nonfresh_subset_prefixes {P : Params} {c : CacheP P} {D : Finset Query}
+theorem nonfresh_subset_prefixes {P : Params} {F : DagFormat} {c : CacheP P} {D : Finset Query}
     (hc : HasSupport c D) :
-    (Finset.univ.filter fun m : BitVec P.msgBits => ¬ FreshMessage c m) ⊆
-      D.image (messagePrefix P) := by
+    (Finset.univ.filter fun m : BitVec P.msgBits => ¬ FreshMessage F c m) ⊆
+      D.image (messagePrefix P F) := by
   intro m hm
-  have hm' : ¬ FreshMessage c m := (Finset.mem_filter.mp hm).2
+  have hm' : ¬ FreshMessage F c m := (Finset.mem_filter.mp hm).2
   simp only [FreshMessage, not_forall] at hm'
   obtain ⟨η, hη⟩ := hm'
   exact Finset.mem_image.mpr ⟨⟨_, m ++ η⟩,
-    hc _ (Option.ne_none_iff_isSome.mp hη), messagePrefix_append P m η⟩
+    hc _ (Option.ne_none_iff_isSome.mp hη), messagePrefix_append P F m η⟩
 
 /-- At most one message prefix is excluded per cached string. -/
-theorem card_nonfresh_le {P : Params} {c : CacheP P} {D : Finset Query}
+theorem card_nonfresh_le {P : Params} {F : DagFormat} {c : CacheP P} {D : Finset Query}
     (hc : HasSupport c D) :
-    (Finset.univ.filter fun m : BitVec P.msgBits => ¬ FreshMessage c m).card ≤ D.card :=
+    (Finset.univ.filter fun m : BitVec P.msgBits => ¬ FreshMessage F c m).card ≤ D.card :=
   (Finset.card_le_card (nonfresh_subset_prefixes hc)).trans (Finset.card_image_le)
 
 /-- Uniform sampling turns a finite event's cardinality into its exact probability. -/
@@ -80,13 +80,13 @@ theorem uniform_indicator (n : ℕ) (A : Finset (BitVec n)) :
 
 /-- A uniform message has a previously queried nonce-domain point with
 probability at most `card D / 2^msgBits`. -/
-theorem uniform_nonfresh_le {P : Params} {c : CacheP P} {D : Finset Query}
+theorem uniform_nonfresh_le {P : Params} {F : DagFormat} {c : CacheP P} {D : Finset Query}
     (hc : HasSupport c D) :
     expectedValue ($ᵗ BitVec P.msgBits)
-      (fun m => if ¬ FreshMessage c m then (1 : ℝ≥0∞) else 0) ≤
+      (fun m => if ¬ FreshMessage F c m then (1 : ℝ≥0∞) else 0) ≤
       (D.card : ℝ≥0∞) / 2 ^ P.msgBits := by
-  have heq : (fun m : BitVec P.msgBits => if ¬ FreshMessage c m then (1 : ℝ≥0∞) else 0) =
-      (fun m => if m ∈ Finset.univ.filter (fun m => ¬ FreshMessage c m)
+  have heq : (fun m : BitVec P.msgBits => if ¬ FreshMessage F c m then (1 : ℝ≥0∞) else 0) =
+      (fun m => if m ∈ Finset.univ.filter (fun m => ¬ FreshMessage F c m)
         then (1 : ℝ≥0∞) else 0) := by
     funext m
     simp only [Finset.mem_filter, Finset.mem_univ, true_and]
@@ -94,30 +94,30 @@ theorem uniform_nonfresh_le {P : Params} {c : CacheP P} {D : Finset Query}
   exact ENNReal.div_le_div_right (by exact_mod_cast card_nonfresh_le hc) _
 
 /-- Excluding a previous message costs at most one additional prefix. -/
-theorem card_nonfresh_or_eq_le {P : Params} {c : CacheP P} {D : Finset Query}
+theorem card_nonfresh_or_eq_le {P : Params} {F : DagFormat} {c : CacheP P} {D : Finset Query}
     (hc : HasSupport c D) (m₀ : BitVec P.msgBits) :
-    (Finset.univ.filter fun m : BitVec P.msgBits => ¬ FreshMessage c m ∨ m = m₀).card ≤
+    (Finset.univ.filter fun m : BitVec P.msgBits => ¬ FreshMessage F c m ∨ m = m₀).card ≤
       D.card + 1 := by
-  have hsub : (Finset.univ.filter fun m : BitVec P.msgBits => ¬ FreshMessage c m ∨ m = m₀) ⊆
-      insert m₀ (D.image (messagePrefix P)) := by
+  have hsub : (Finset.univ.filter fun m : BitVec P.msgBits => ¬ FreshMessage F c m ∨ m = m₀) ⊆
+      insert m₀ (D.image (messagePrefix P F)) := by
     intro m hm
     rcases (Finset.mem_filter.mp hm).2 with hm | rfl
     · exact Finset.mem_insert_of_mem
         (nonfresh_subset_prefixes hc (Finset.mem_filter.mpr ⟨Finset.mem_univ _, hm⟩))
     · exact Finset.mem_insert_self _ _
-  calc _ ≤ (insert m₀ (D.image (messagePrefix P))).card := Finset.card_le_card hsub
-    _ ≤ (D.image (messagePrefix P)).card + 1 := Finset.card_insert_le _ _
+  calc _ ≤ (insert m₀ (D.image (messagePrefix P F))).card := Finset.card_le_card hsub
+    _ ≤ (D.image (messagePrefix P F)).card + 1 := Finset.card_insert_le _ _
     _ ≤ D.card + 1 := Nat.add_le_add_right Finset.card_image_le 1
 
 /-- A uniform fresh message can also be required to differ from a previous one. -/
-theorem uniform_nonfresh_or_eq_le {P : Params} {c : CacheP P} {D : Finset Query}
+theorem uniform_nonfresh_or_eq_le {P : Params} {F : DagFormat} {c : CacheP P} {D : Finset Query}
     (hc : HasSupport c D) (m₀ : BitVec P.msgBits) :
     expectedValue ($ᵗ BitVec P.msgBits)
-      (fun m => if ¬ FreshMessage c m ∨ m = m₀ then (1 : ℝ≥0∞) else 0) ≤
+      (fun m => if ¬ FreshMessage F c m ∨ m = m₀ then (1 : ℝ≥0∞) else 0) ≤
       ((D.card + 1 : ℕ) : ℝ≥0∞) / 2 ^ P.msgBits := by
   have heq : (fun m : BitVec P.msgBits =>
-        if ¬ FreshMessage c m ∨ m = m₀ then (1 : ℝ≥0∞) else 0) =
-      (fun m => if m ∈ Finset.univ.filter (fun m => ¬ FreshMessage c m ∨ m = m₀)
+        if ¬ FreshMessage F c m ∨ m = m₀ then (1 : ℝ≥0∞) else 0) =
+      (fun m => if m ∈ Finset.univ.filter (fun m => ¬ FreshMessage F c m ∨ m = m₀)
         then (1 : ℝ≥0∞) else 0) := by
     funext m
     simp only [Finset.mem_filter, Finset.mem_univ, true_and]
@@ -143,13 +143,13 @@ theorem uniform_complement_ge (n : ℕ) (bad : BitVec n → Prop) [DecidablePred
 
 /-- A fresh message different from `m₀` retains all but `(card D+1)/2^msgBits`
 of the probability mass. -/
-theorem uniform_fresh_ne_ge {P : Params} {c : CacheP P} {D : Finset Query}
+theorem uniform_fresh_ne_ge {P : Params} {F : DagFormat} {c : CacheP P} {D : Finset Query}
     (hc : HasSupport c D) (m₀ : BitVec P.msgBits) :
     1 - ((D.card + 1 : ℕ) : ℝ≥0∞) / 2 ^ P.msgBits ≤
       expectedValue ($ᵗ BitVec P.msgBits)
-        (fun m => if FreshMessage c m ∧ m ≠ m₀ then (1 : ℝ≥0∞) else 0) := by
+        (fun m => if FreshMessage F c m ∧ m ≠ m₀ then (1 : ℝ≥0∞) else 0) := by
   simpa only [not_or, not_not] using uniform_complement_ge P.msgBits
-    (fun m => ¬ FreshMessage c m ∨ m = m₀) _ (by simpa only using uniform_nonfresh_or_eq_le hc m₀)
+    (fun m => ¬ FreshMessage F c m ∨ m = m₀) _ (by simpa only using uniform_nonfresh_or_eq_le hc m₀)
 
 /-- A computation of cost at most `b` adds at most `b` cache entries. -/
 theorem exists_support_run {P : Params} {α : Type} (oa : OracleComp (Spec P) α) :

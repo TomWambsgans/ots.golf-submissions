@@ -16,11 +16,11 @@ attribute [local reducible] Forest.graph
 attribute [local irreducible] Forest.setsName Forest.fixedChoice Forest.fixedPositions Forest.fixedDigits
 
 /-- The bits consumed by earlier disclosures in a list of named nodes. -/
-def precedingBits (i : Idx paperParams) (nodes : List Name) (n : Name) : ℕ :=
+def precedingBits (i : Idx paperDagFormat) (nodes : List Name) (n : Name) : ℕ :=
   ((nodes.filter fun w => disclosed (fixedPositions i) w && decide (w.idx < n.idx)).map Name.len).sum
 
 /-- Sequential disclosure offsets agree with the graph's bit-string encoding. -/
-theorem precedingBits_eq (i : Idx paperParams) (n : Name) :
+theorem precedingBits_eq (i : Idx paperDagFormat) (n : Name) :
     precedingBits i order n = graph.offset (fins (setsName i)) n.fin := by
   rw [Graph.offset_eq]
   change _ = chunkOff graph.len ((List.finRange N).filter _) n.fin
@@ -35,11 +35,11 @@ theorem precedingBits_eq (i : Idx paperParams) (n : Name) :
   exact (lenF_fin x).symm
 
 /-- Number of signature bits consumed at a named node. -/
-def consumedBits (i : Idx paperParams) (n : Name) : ℕ :=
+def consumedBits (i : Idx paperDagFormat) (n : Name) : ℕ :=
   if disclosed (fixedPositions i) n then n.len else 0
 
 /-- A machine step with a running signature cursor measured in bits. -/
-def cursorStep (i : Idx paperParams) (payload : List Bool)
+def cursorStep (i : Idx paperDagFormat) (payload : List Bool)
     (x : graph.Assignment) (cursor : ℕ) (n : Name) :
     OracleComp (Spec paperParams) (graph.Assignment × ℕ) :=
   if disclosed (fixedPositions i) n then
@@ -49,14 +49,14 @@ def cursorStep (i : Idx paperParams) (payload : List Bool)
     (fun y => (Function.update x n.fin y, cursor)) <$> runOp x n
   else pure (Function.update x n.fin 0, cursor)
 
-private theorem evaluated_iff_reachable (i : Idx paperParams) (n : Name)
+private theorem evaluated_iff_reachable (i : Idx paperDagFormat) (n : Name)
     (hn : n ∉ setsName i) :
     evaluated (fixedPositions i) n = true ↔ reachable (setsName i) n = true := by
   rw [evaluated_eq, reachable_eq_true, visited_iff]
   exact ⟨fun h => h.2, fun h => ⟨hn, h⟩⟩
 
 /-- A cursor step agrees with an offset read when its cursor names the next disclosure. -/
-theorem cursorStep_eq (i : Idx paperParams) (payload : List Bool)
+theorem cursorStep_eq (i : Idx paperDagFormat) (payload : List Bool)
     (x : graph.Assignment) (cursor : ℕ) (n : Name)
     (hc : disclosed (fixedPositions i) n = true →
       cursor = graph.offset (fins (setsName i)) n.fin) :
@@ -74,14 +74,14 @@ theorem cursorStep_eq (i : Idx paperParams) (payload : List Bool)
     split_ifs <;> simp only [map_pure, Functor.map_map, runOp_eq]
 
 /-- Execute the node sequence, consuming signature words in topological order. -/
-def runNodes (i : Idx paperParams) (payload : List Bool) :
+def runNodes (i : Idx paperDagFormat) (payload : List Bool) :
     List Name → graph.Assignment → ℕ → OracleComp (Spec paperParams) graph.Assignment
   | [], x, _ => pure x
   | n :: ns, x, cursor => do
       let (y, next) ← cursorStep i payload x cursor n
       runNodes i payload ns y next
 
-private theorem precedingBits_head (i : Idx paperParams) (n : Name) (nodes : List Name)
+private theorem precedingBits_head (i : Idx paperDagFormat) (n : Name) (nodes : List Name)
     (hs : (n :: nodes).Pairwise (fun a b => a.idx < b.idx)) :
     precedingBits i (n :: nodes) n = 0 := by
   have hn := (List.pairwise_cons.mp hs).1
@@ -94,7 +94,7 @@ private theorem precedingBits_head (i : Idx paperParams) (n : Name) (nodes : Lis
   simp only [precedingBits, Nat.lt_irrefl, decide_false, Bool.and_false,
     List.filter_cons_of_neg, Bool.false_eq_true, not_false_eq_true, hf, List.map_nil, List.sum_nil]
 
-private theorem precedingBits_cons (i : Idx paperParams) (n m : Name) (nodes : List Name)
+private theorem precedingBits_cons (i : Idx paperDagFormat) (n m : Name) (nodes : List Name)
     (hnm : n.idx < m.idx) :
     precedingBits i (n :: nodes) m = consumedBits i n + precedingBits i nodes m := by
   simp only [precedingBits, hnm, decide_true, Bool.and_true, List.filter_cons]
@@ -103,7 +103,7 @@ private theorem precedingBits_cons (i : Idx paperParams) (n m : Name) (nodes : L
   · simp only [hd, Bool.false_eq_true, if_false, consumedBits, Nat.zero_add]
 
 /-- The sequential reader and the graph decoder have identical oracle behavior. -/
-theorem runNodes_eq (i : Idx paperParams) (payload : List Bool) (nodes : List Name)
+theorem runNodes_eq (i : Idx paperDagFormat) (payload : List Bool) (nodes : List Name)
     (hs : nodes.Pairwise (fun a b => a.idx < b.idx))
     (x : graph.Assignment) (cursor : ℕ)
     (hc : ∀ n ∈ nodes, cursor + precedingBits i nodes n =
@@ -134,12 +134,12 @@ theorem order_sorted : order.Pairwise (fun a b => a.idx < b.idx) := by
   exact h
 
 /-- The direct compiler's high-level reconstruction, with a sequential disclosure cursor. -/
-def directReconstruct (i : Idx paperParams) (payload : List Bool) :
+def directReconstruct (i : Idx paperDagFormat) (payload : List Bool) :
     OracleComp (Spec paperParams) graph.Assignment :=
   runNodes i payload order (fun _ => 0) 0
 
 /-- Direct reconstruction is exactly the certified DAG reconstruction. -/
-theorem directReconstruct_eq (i : Idx paperParams) (payload : List Bool) :
+theorem directReconstruct_eq (i : Idx paperDagFormat) (payload : List Bool) :
     directReconstruct i payload = reconstruct (setsName i) payload := by
   apply runNodes_eq i payload order order_sorted
   intro n _
@@ -148,8 +148,8 @@ theorem directReconstruct_eq (i : Idx paperParams) (payload : List Bool) :
 /-- The complete verifier compiled to the direct node program. -/
 def directVerify (pk : PublicKey paperParams) (m : Message paperParams) (bits : List Bool) :
     OracleComp (Spec paperParams) Bool := do
-  let i ← index paperParams m (ofBits 128 (bits.take 128))
-  if hi : i ∈ validSet paperParams then
+  let i ← index paperParams paperDagFormat m (ofBits 128 (bits.take 128))
+  if hi : i ∈ validSet paperDagFormat then
     if bits.length = 5376 then
       let y ← directReconstruct ⟨i, hi⟩ (bits.drop 128)
       return decide ((y rh.fin).setWidth 128 = pk)
@@ -161,9 +161,9 @@ theorem directVerify_eq (pk : PublicKey paperParams) (m : Message paperParams) (
     directVerify pk m bits = Wire.scheme.verify pk m bits := by
   rw [← verify_eq]
   unfold directVerify verify
-  apply congrArg (fun f => index paperParams m (ofBits 128 (bits.take 128)) >>= f)
+  apply congrArg (fun f => index paperParams paperDagFormat m (ofBits 128 (bits.take 128)) >>= f)
   funext i
-  by_cases hi : i ∈ validSet paperParams
+  by_cases hi : i ∈ validSet paperDagFormat
   · rw [dif_pos hi, dif_pos hi]
     have hlen := Wire.payload_length_iff bits ⟨i, hi⟩
     change (bits.drop 128).length = graph.revealBits (fins (setsName ⟨i, hi⟩)) ↔ bits.length = 5376 at hlen
@@ -171,7 +171,7 @@ theorem directVerify_eq (pk : PublicKey paperParams) (m : Message paperParams) (
   · rw [dif_neg hi, dif_neg hi]
 
 /-- The sequential disclosure cursor advances by one word exactly at disclosed nodes. -/
-theorem consumedBits_word (i : Idx paperParams) (n : Name) :
+theorem consumedBits_word (i : Idx paperDagFormat) (n : Name) :
     consumedBits i n = if disclosed (fixedPositions i) n then 128 else 0 := by
   unfold consumedBits
   split_ifs with hd

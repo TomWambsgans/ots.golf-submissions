@@ -23,25 +23,25 @@ theorem costAtMost_query_bind_iff (P : Params) {α : Type} (t : (Spec P).Domain)
 
 namespace Analysis
 
-lemma setWidth_append_nonce {P : Params} (m : Message P) (η : Nonce P) :
-    (m ++ η).setWidth P.nonceBits = η := by
+lemma setWidth_append_nonce {P : Params} {F : DagFormat} (m : Message P) (η : Nonce F) :
+    (m ++ η).setWidth F.nonceBits = η := by
   ext j hj
   simp [BitVec.getElem_setWidth, BitVec.getLsbD_append, hj]
 
 /-- The index read from an oracle output. -/
-def idxOfOut (P : Params) (y : BitVec P.hashBits) : ℕ := (y.setWidth P.idxBits).toNat
+def idxOfOut (P : Params) (F : DagFormat) (y : BitVec P.hashBits) : ℕ := (y.setWidth F.idxBits).toNat
 
 /-- Number of oracle outputs whose index lies in a set of index values. -/
-theorem card_idxOfOut_mem {P : Params} (hidx : P.idxBits ≤ P.hashBits) (A : Finset ℕ)
-    (hA : ∀ n ∈ A, n < 2 ^ P.idxBits) :
-    (Finset.univ.filter fun y : BitVec P.hashBits => idxOfOut P y ∈ A).card =
-      A.card * 2 ^ (P.hashBits - P.idxBits) := by
-  have hH : 2 ^ P.hashBits = 2 ^ P.idxBits * 2 ^ (P.hashBits - P.idxBits) := by
+theorem card_idxOfOut_mem {P : Params} {F : DagFormat} (hidx : F.idxBits ≤ P.hashBits) (A : Finset ℕ)
+    (hA : ∀ n ∈ A, n < 2 ^ F.idxBits) :
+    (Finset.univ.filter fun y : BitVec P.hashBits => idxOfOut P F y ∈ A).card =
+      A.card * 2 ^ (P.hashBits - F.idxBits) := by
+  have hH : 2 ^ P.hashBits = 2 ^ F.idxBits * 2 ^ (P.hashBits - F.idxBits) := by
     rw [← pow_add, Nat.add_sub_cancel' hidx]
-  have hNpos : 0 < 2 ^ P.idxBits := by positivity
-  rw [← Finset.card_range (2 ^ (P.hashBits - P.idxBits)), ← Finset.card_product]
-  refine Finset.card_nbij' (fun y => (y.toNat % 2 ^ P.idxBits, y.toNat / 2 ^ P.idxBits))
-    (fun x => BitVec.ofNat P.hashBits (x.1 + 2 ^ P.idxBits * x.2)) ?_ ?_ ?_ ?_
+  have hNpos : 0 < 2 ^ F.idxBits := by positivity
+  rw [← Finset.card_range (2 ^ (P.hashBits - F.idxBits)), ← Finset.card_product]
+  refine Finset.card_nbij' (fun y => (y.toNat % 2 ^ F.idxBits, y.toNat / 2 ^ F.idxBits))
+    (fun x => BitVec.ofNat P.hashBits (x.1 + 2 ^ F.idxBits * x.2)) ?_ ?_ ?_ ?_
   · intro y hy
     simp only [Finset.coe_filter, Finset.mem_univ, true_and, Set.mem_ofPred_eq] at hy
     simp only [Finset.coe_product, Set.mem_prod, Finset.mem_coe, Finset.mem_range]
@@ -54,7 +54,7 @@ theorem card_idxOfOut_mem {P : Params} (hidx : P.idxBits ≤ P.hashBits) (A : Fi
   · intro x hx
     simp only [Finset.coe_product, Set.mem_prod, Finset.mem_coe, Finset.mem_range] at hx
     simp only [Finset.coe_filter, Finset.mem_univ, true_and, Set.mem_ofPred_eq]
-    have h1 : x.1 + 2 ^ P.idxBits * x.2 < 2 ^ P.hashBits := by
+    have h1 : x.1 + 2 ^ F.idxBits * x.2 < 2 ^ P.hashBits := by
       rw [hH]
       have := hA _ hx.1
       nlinarith
@@ -68,7 +68,7 @@ theorem card_idxOfOut_mem {P : Params} (hidx : P.idxBits ≤ P.hashBits) (A : Fi
   · intro x hx
     simp only [Finset.coe_product, Set.mem_prod, Finset.mem_coe, Finset.mem_range] at hx
     have hx1 := hA _ hx.1
-    have h1 : x.1 + 2 ^ P.idxBits * x.2 < 2 ^ P.hashBits := by
+    have h1 : x.1 + 2 ^ F.idxBits * x.2 < 2 ^ P.hashBits := by
       rw [hH]
       nlinarith
     simp only [BitVec.toNat_ofNat, Nat.mod_eq_of_lt h1, Nat.add_mul_mod_self_left,
@@ -77,29 +77,29 @@ theorem card_idxOfOut_mem {P : Params} (hidx : P.idxBits ≤ P.hashBits) (A : Fi
 end Analysis
 
 
-variable (P : Params)
+variable (P : Params) (F : DagFormat)
 
 /-- An encoding input. -/
-abbrev EncInput (P : Params) := BitVec (P.msgBits + P.nonceBits)
+abbrev EncInput (P : Params) (F : DagFormat) := BitVec (P.msgBits + F.nonceBits)
 
 /-- The encoding query at input `u`, represented by its length and bits. A node query may
 use exactly the same string; freshness must be proved from the cache. -/
-def encQuery (u : EncInput P) : Query := ⟨P.msgBits + P.nonceBits, u⟩
+def encQuery (u : EncInput P F) : Query := ⟨P.msgBits + F.nonceBits, u⟩
 
 /-- The index read from an oracle answer. -/
-def idxOf (w : BitVec P.hashBits) : ℕ := (w.setWidth P.idxBits).toNat
+def idxOf (w : BitVec P.hashBits) : ℕ := (w.setWidth F.idxBits).toNat
 
 /-- The signing loop, returning the nonce and the index. -/
 def signIdxLoop (m : Message P) :
-    ℕ → Finset (Nonce P) → OracleComp (Spec P) (Option (Nonce P × Fin P.numSets))
+    ℕ → Finset (Nonce F) → OracleComp (Spec P) (Option (Nonce F × Fin F.numSets))
   | 0, _ => pure none
   | k + 1, tried =>
     let fresh := Finset.univ \ tried
     if h : 0 < fresh.card then do
       let j ← (liftM ($[0..(fresh.card - 1)]) : OracleComp (Spec P) (Fin (fresh.card - 1 + 1)))
-      let η : Nonce P := (fresh.equivFin.symm (Fin.cast (by omega) j)).1
-      let i ← index P m η
-      if hi : i < P.numSets then
+      let η : Nonce F := (fresh.equivFin.symm (Fin.cast (by omega) j)).1
+      let i ← index P F m η
+      if hi : i < F.numSets then
         return some (η, ⟨i, hi⟩)
       else
         signIdxLoop m k (insert η tried)
@@ -107,17 +107,17 @@ def signIdxLoop (m : Message P) :
       pure none
 
 /-- Signing, returning the nonce and the index. -/
-def signIdx (m : Message P) : OracleComp (Spec P) (Option (Nonce P × Fin P.numSets)) :=
-  signIdxLoop P m P.trialLimit ∅
+def signIdx (m : Message P) : OracleComp (Spec P) (Option (Nonce F × Fin F.numSets)) :=
+  signIdxLoop P F m F.trialLimit ∅
 
 /-! ### Basic facts on encoding inputs -/
 
-theorem encQuery_inj {u u' : EncInput P} (h : encQuery P u = encQuery P u') : u = u' := by
+theorem encQuery_inj {u u' : EncInput P F} (h : encQuery P F u = encQuery P F u') : u = u' := by
   simp only [encQuery, Sigma.mk.inj_iff, heq_eq_eq, true_and] at h
   exact h
 
-theorem append_nonce_inj (m : Message P) {η η' : Nonce P} (h : m ++ η = m ++ η') : η = η' := by
-  have := congrArg (fun u : EncInput P => u.setWidth P.nonceBits) h
+theorem append_nonce_inj (m : Message P) {η η' : Nonce F} (h : m ++ η = m ++ η') : η = η' := by
+  have := congrArg (fun u : EncInput P F => u.setWidth F.nonceBits) h
   simpa only [Analysis.setWidth_append_nonce] using this
 
 /-! ### The loop in query normal form -/
@@ -130,33 +130,33 @@ theorem liftM_uniformFin_eq (n : ℕ) :
   rfl
 
 /-- The continuation of the loop after the encoding answer `w` at nonce `η`. -/
-def afterHash (m : Message P) (k : ℕ) (tried : Finset (Nonce P)) (η : Nonce P)
-    (w : BitVec P.hashBits) : OracleComp (Spec P) (Option (Nonce P × Fin P.numSets)) :=
-  if hi : idxOf P w < P.numSets then pure (some (η, ⟨idxOf P w, hi⟩))
-  else signIdxLoop P m k (insert η tried)
+def afterHash (m : Message P) (k : ℕ) (tried : Finset (Nonce F)) (η : Nonce F)
+    (w : BitVec P.hashBits) : OracleComp (Spec P) (Option (Nonce F × Fin F.numSets)) :=
+  if hi : idxOf P F w < F.numSets then pure (some (η, ⟨idxOf P F w, hi⟩))
+  else signIdxLoop P F m k (insert η tried)
 
 /-- The body of the loop at nonce `η`: one encoding query, then stop or recurse. -/
-def loopBody (m : Message P) (k : ℕ) (tried : Finset (Nonce P)) (η : Nonce P) :
-    OracleComp (Spec P) (Option (Nonce P × Fin P.numSets)) :=
-  (liftM ((Spec P).query (.inr (encQuery P (m ++ η)))) :
-      OracleComp (Spec P) (BitVec P.hashBits)) >>= afterHash P m k tried η
+def loopBody (m : Message P) (k : ℕ) (tried : Finset (Nonce F)) (η : Nonce F) :
+    OracleComp (Spec P) (Option (Nonce F × Fin F.numSets)) :=
+  (liftM ((Spec P).query (.inr (encQuery P F (m ++ η)))) :
+      OracleComp (Spec P) (BitVec P.hashBits)) >>= afterHash P F m k tried η
 
 /-- The nonce selected by the sample `j`. -/
-def nonceOf (tried : Finset (Nonce P)) (hc : 0 < (Finset.univ \ tried).card)
-    (j : Fin ((Finset.univ \ tried).card - 1 + 1)) : Nonce P :=
+def nonceOf (tried : Finset (Nonce F)) (hc : 0 < (Finset.univ \ tried).card)
+    (j : Fin ((Finset.univ \ tried).card - 1 + 1)) : Nonce F :=
   ((Finset.univ \ tried).equivFin.symm (Fin.cast (by omega) j)).1
 
-theorem nonceOf_mem (tried : Finset (Nonce P)) (hc : 0 < (Finset.univ \ tried).card)
+theorem nonceOf_mem (tried : Finset (Nonce F)) (hc : 0 < (Finset.univ \ tried).card)
     (j : Fin ((Finset.univ \ tried).card - 1 + 1)) :
-    nonceOf P tried hc j ∈ Finset.univ \ tried :=
+    nonceOf F tried hc j ∈ Finset.univ \ tried :=
   ((Finset.univ \ tried).equivFin.symm (Fin.cast (by omega) j)).2
 
-theorem signIdxLoop_succ (m : Message P) (k : ℕ) (tried : Finset (Nonce P))
+theorem signIdxLoop_succ (m : Message P) (k : ℕ) (tried : Finset (Nonce F))
     (hc : 0 < (Finset.univ \ tried).card) :
-    signIdxLoop P m (k + 1) tried =
+    signIdxLoop P F m (k + 1) tried =
       (liftM ((Spec P).query (.inl ((Finset.univ \ tried).card - 1))) :
           OracleComp (Spec P) (Fin ((Finset.univ \ tried).card - 1 + 1))) >>= fun j =>
-        loopBody P m k tried (nonceOf P tried hc j) := by
+        loopBody P F m k tried (nonceOf F tried hc j) := by
   rw [signIdxLoop, dif_pos hc, liftM_uniformFin_eq]
   refine bind_congr fun j => ?_
   simp only [loopBody, nonceOf, index, hash, map_eq_bind_pure_comp, bind_assoc, pure_bind,
@@ -212,11 +212,11 @@ theorem mem_support_run_inr_some {α : Type} {q : Query} {u : BitVec P.hashBits}
 
 /-! ### `Scheme.sign` as the image of `signIdx` -/
 
-theorem signLoop_eq_map {P : Params} (S : Scheme P) (x : S.graph.Assignment) (m : Message P) :
-    ∀ (k : ℕ) (tried : Finset (Nonce P)),
+theorem signLoop_eq_map {P : Params} {F : DagFormat} (S : Scheme P F) (x : S.graph.Assignment) (m : Message P) :
+    ∀ (k : ℕ) (tried : Finset (Nonce F)),
       S.signLoop x m k tried =
-        (Option.map fun r : Nonce P × Fin P.numSets => (r.1, S.graph.encode (S.sets r.2) x)) <$>
-          signIdxLoop P m k tried := by
+        (Option.map fun r : Nonce F × Fin F.numSets => (r.1, S.graph.encode (S.sets r.2) x)) <$>
+          signIdxLoop P F m k tried := by
   intro k
   induction k with
   | zero => intro tried; simp [Scheme.signLoop, signIdxLoop]
@@ -234,25 +234,25 @@ theorem signLoop_eq_map {P : Params} (S : Scheme P) (x : S.graph.Assignment) (m 
       simp
 
 /-- `Scheme.sign` encodes the revealed values of the index found by `signIdx`. -/
-theorem sign_eq_map {P : Params} (S : Scheme P) (x : S.graph.Assignment) (m : Message P) :
+theorem sign_eq_map {P : Params} {F : DagFormat} (S : Scheme P F) (x : S.graph.Assignment) (m : Message P) :
     S.sign x m =
-      (Option.map fun r : Nonce P × Fin P.numSets => (r.1, S.graph.encode (S.sets r.2) x)) <$>
-        signIdx P m :=
-  signLoop_eq_map S x m P.trialLimit ∅
+      (Option.map fun r : Nonce F × Fin F.numSets => (r.1, S.graph.encode (S.sets r.2) x)) <$>
+        signIdx P F m :=
+  signLoop_eq_map S x m F.trialLimit ∅
 
 /-! ### Non-encoding entries are irrelevant -/
 
 /-! ### The new cache entries -/
 
 theorem signIdxLoop_support (m : Message P) :
-    ∀ (k : ℕ) (tried : Finset (Nonce P)) (d : Cache P),
-      ∀ p ∈ support (run P (signIdxLoop P m k tried) d),
+    ∀ (k : ℕ) (tried : Finset (Nonce F)) (d : Cache P),
+      ∀ p ∈ support (run P (signIdxLoop P F m k tried) d),
         Cache.Sub d p.2 ∧
         (∀ q w, d q = none → p.2 q = some w →
-          ∃ η : Nonce P, q = encQuery P (m ++ η) ∧
-            ∀ hi : idxOf P w < P.numSets, p.1 = some (η, ⟨idxOf P w, hi⟩)) ∧
+          ∃ η : Nonce F, q = encQuery P F (m ++ η) ∧
+            ∀ hi : idxOf P F w < F.numSets, p.1 = some (η, ⟨idxOf P F w, hi⟩)) ∧
         (∀ η i, p.1 = some (η, i) →
-          ∃ w, p.2 (encQuery P (m ++ η)) = some w ∧ idxOf P w = i.val) := by
+          ∃ w, p.2 (encQuery P F (m ++ η)) = some w ∧ idxOf P F w = i.val) := by
   intro k
   induction k with
   | zero =>
@@ -266,21 +266,21 @@ theorem signIdxLoop_support (m : Message P) :
   | succ k ih =>
     intro tried d p hp
     by_cases hc : 0 < (Finset.univ \ tried).card
-    · rw [signIdxLoop_succ P m k tried hc] at hp
+    · rw [signIdxLoop_succ P F m k tried hc] at hp
       obtain ⟨j, hp⟩ := mem_support_run_inl P hp
       simp only [loopBody] at hp
-      generalize nonceOf P tried hc j = η at hp
-      rcases hdq : d (encQuery P (m ++ η)) with _ | w
+      generalize nonceOf F tried hc j = η at hp
+      rcases hdq : d (encQuery P F (m ++ η)) with _ | w
       · obtain ⟨w, hp⟩ := mem_support_run_inr_none P hdq hp
         rw [afterHash] at hp
-        by_cases hi : idxOf P w < P.numSets
+        by_cases hi : idxOf P F w < F.numSets
         · rw [dif_pos hi, run_pure, support_pure] at hp
           simp only [Set.mem_singleton_iff] at hp
           subst hp
           refine ⟨Cache.sub_cacheQuery_of_none hdq w, ?_, ?_⟩
           · intro q w' h1 h2
-            change (d.cacheQuery (encQuery P (m ++ η)) w) q = some w' at h2
-            by_cases hq : q = encQuery P (m ++ η)
+            change (d.cacheQuery (encQuery P F (m ++ η)) w) q = some w' at h2
+            by_cases hq : q = encQuery P F (m ++ η)
             · subst hq
               rw [QueryCache.cacheQuery_self] at h2
               obtain rfl := Option.some.inj h2
@@ -288,7 +288,7 @@ theorem signIdxLoop_support (m : Message P) :
             · rw [QueryCache.cacheQuery_of_ne _ _ hq, h1] at h2
               cases h2
           · intro η' i h
-            change some (η, ⟨idxOf P w, hi⟩) = some (η', i) at h
+            change some (η, ⟨idxOf P F w, hi⟩) = some (η', i) at h
             simp only [Option.some.injEq, Prod.mk.injEq] at h
             obtain ⟨rfl, rfl⟩ := h
             exact ⟨w, QueryCache.cacheQuery_self _ _ _, rfl⟩
@@ -296,9 +296,9 @@ theorem signIdxLoop_support (m : Message P) :
           obtain ⟨h1, h2, h3⟩ := ih (insert η tried) (d.cacheQuery _ w) p hp
           refine ⟨(Cache.sub_cacheQuery_of_none hdq w).trans h1, ?_, h3⟩
           intro q w' hq1 hq2
-          by_cases hq : q = encQuery P (m ++ η)
+          by_cases hq : q = encQuery P F (m ++ η)
           · subst hq
-            have : p.2 (encQuery P (m ++ η)) = some w :=
+            have : p.2 (encQuery P F (m ++ η)) = some w :=
               h1 _ _ (QueryCache.cacheQuery_self _ _ _)
             rw [this] at hq2
             obtain rfl := Option.some.inj hq2
@@ -306,7 +306,7 @@ theorem signIdxLoop_support (m : Message P) :
           · exact h2 q w' (by rw [QueryCache.cacheQuery_of_ne _ _ hq]; exact hq1) hq2
       · have hp := mem_support_run_inr_some P hdq hp
         rw [afterHash] at hp
-        by_cases hi : idxOf P w < P.numSets
+        by_cases hi : idxOf P F w < F.numSets
         · rw [dif_pos hi, run_pure, support_pure] at hp
           simp only [Set.mem_singleton_iff] at hp
           subst hp
@@ -314,7 +314,7 @@ theorem signIdxLoop_support (m : Message P) :
           · change d q = some w' at h2
             rw [h1] at h2; cases h2
           · intro η' i h
-            change some (η, ⟨idxOf P w, hi⟩) = some (η', i) at h
+            change some (η, ⟨idxOf P F w, hi⟩) = some (η', i) at h
             simp only [Option.some.injEq, Prod.mk.injEq] at h
             obtain ⟨rfl, rfl⟩ := h
             exact ⟨w, hdq, rfl⟩
@@ -329,12 +329,12 @@ theorem signIdxLoop_support (m : Message P) :
 
 /-- The new cache entries of the loop. -/
 theorem signIdx_support (m : Message P) (d : Cache P) :
-    ∀ p ∈ support (run P (signIdx P m) d),
+    ∀ p ∈ support (run P (signIdx P F m) d),
       Cache.Sub d p.2 ∧
       (∀ q w, d q = none → p.2 q = some w →
-        ∃ η : Nonce P, q = encQuery P (m ++ η) ∧
-          ∀ hi : idxOf P w < P.numSets, p.1 = some (η, ⟨idxOf P w, hi⟩)) ∧
-      (∀ η i, p.1 = some (η, i) → ∃ w, p.2 (encQuery P (m ++ η)) = some w ∧ idxOf P w = i.val) :=
-  signIdxLoop_support P m P.trialLimit ∅ d
+        ∃ η : Nonce F, q = encQuery P F (m ++ η) ∧
+          ∀ hi : idxOf P F w < F.numSets, p.1 = some (η, ⟨idxOf P F w, hi⟩)) ∧
+      (∀ η i, p.1 = some (η, i) → ∃ w, p.2 (encQuery P F (m ++ η)) = some w ∧ idxOf P F w = i.val) :=
+  signIdxLoop_support P F m F.trialLimit ∅ d
 
 end OptimalOTS

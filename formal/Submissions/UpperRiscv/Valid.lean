@@ -82,26 +82,26 @@ def Accepted (i : ℕ) : Prop :=
 instance : DecidablePred Accepted := fun i => by unfold Accepted; infer_instance
 
 /-- The accepted indices below `2 ^ idxBits`. -/
-def validSet (P : Params) : Finset ℕ := (Finset.range (2 ^ P.idxBits)).filter Accepted
+def validSet (F : DagFormat) : Finset ℕ := (Finset.range (2 ^ F.idxBits)).filter Accepted
 
 /-- A valid index. -/
-abbrev Idx (P : Params) : Type := {i : ℕ // i ∈ validSet P}
+abbrev Idx (F : DagFormat) : Type := {i : ℕ // i ∈ validSet F}
 
 /-- The number of valid indices. -/
-def numValid (P : Params) : ℕ := (validSet P).card
+def numValid (F : DagFormat) : ℕ := (validSet F).card
 
-theorem mem_validSet {P : Params} {i : ℕ} : i ∈ validSet P ↔ i < 2 ^ P.idxBits ∧ Accepted i := by
+theorem mem_validSet {F : DagFormat} {i : ℕ} : i ∈ validSet F ↔ i < 2 ^ F.idxBits ∧ Accepted i := by
   simp [validSet]
 
-theorem mem_validSet_lt {P : Params} {i : ℕ} (h : i ∈ validSet P) : i < 2 ^ P.idxBits :=
+theorem mem_validSet_lt {F : DagFormat} {i : ℕ} (h : i ∈ validSet F) : i < 2 ^ F.idxBits :=
   (mem_validSet.mp h).1
 
-theorem mem_validSet_accepted {P : Params} {i : ℕ} (h : i ∈ validSet P) : Accepted i :=
+theorem mem_validSet_accepted {F : DagFormat} {i : ℕ} (h : i ∈ validSet F) : Accepted i :=
   (mem_validSet.mp h).2
 
-theorem Idx.isLt {P : Params} (i : Idx P) : i.val < 2 ^ P.idxBits := mem_validSet_lt i.2
+theorem Idx.isLt {F : DagFormat} (i : Idx F) : i.val < 2 ^ F.idxBits := mem_validSet_lt i.2
 
-theorem numValid_le (P : Params) : numValid P ≤ 2 ^ P.idxBits := by
+theorem numValid_le (F : DagFormat) : numValid F ≤ 2 ^ F.idxBits := by
   unfold numValid validSet
   exact (Finset.card_filter_le _ _).trans (by rw [Finset.card_range])
 
@@ -130,11 +130,11 @@ def indexOf (c : Fin 32 → Fin 15) : ℕ := ofNibbles (digitFun c) 32
 theorem nibble_indexOf (c : Fin 32 → Fin 15) (k : Fin 32) : nibble (indexOf c) k = (c k).val := by
   rw [indexOf, nibble_ofNibbles _ (digitFun_lt c) 32 k k.isLt, digitFun, dif_pos k.isLt]
 
-theorem idxBits_eq : 2 ^ paperParams.idxBits = 16 ^ 32 := by norm_num [paperParams]
+theorem idxBits_eq : 2 ^ paperDagFormat.idxBits = 16 ^ 32 := by norm_num [paperDagFormat]
 
 attribute [local irreducible] validSet tuples
 
-theorem card_validSet : (validSet paperParams).card = Forest.comp 32 target := by
+theorem card_validSet : (validSet paperDagFormat).card = Forest.comp 32 target := by
   rw [← tuples_card]
   refine Finset.card_bij' (fun i _ => digitsOf i) (fun c _ => indexOf c) ?_ ?_ ?_ ?_
   · intro i hi
@@ -176,7 +176,7 @@ theorem comp_32_target : Forest.comp 32 target = 4208816690008196405009333719945
   rw [← Forest.compTable_getD 166 32 166 le_rfl]
   decide +kernel
 
-theorem numValid_ge : 2 ^ 115 ≤ numValid paperParams := by
+theorem numValid_ge : 2 ^ 115 ≤ numValid paperDagFormat := by
   rw [numValid, card_validSet, comp_32_target]
   norm_num
 

@@ -13,10 +13,10 @@ namespace OptimalOTS.RiscvUpperForest.Wire
 
 attribute [local irreducible] validSet numValid
 
-def decode (bits : List Bool) : Signature paperParams :=
+def decode (bits : List Bool) : Signature paperDagFormat :=
   (ofBits 128 (bits.take 128), bits.drop 128)
 
-theorem decode_encode (σ : Signature paperParams) :
+theorem decode_encode (σ : Signature paperDagFormat) :
     decode (AlgorithmAdapter.encodeSignature σ) = σ := by
   rcases σ with ⟨nonce, payload⟩
   simp only [decode, AlgorithmAdapter.encodeSignature]
@@ -29,7 +29,7 @@ theorem encode_decode (bits : List Bool) (hlen : 128 ≤ bits.length) :
   change toBits (ofBits 128 (bits.take 128)) ++ bits.drop 128 = bits
   rw [toBits_ofBits _ (by simp [hlen]), List.take_append_drop]
 
-theorem reveal_positive (i : Idx paperParams) :
+theorem reveal_positive (i : Idx paperDagFormat) :
     0 < Forest.forestScheme.graph.revealBits (Forest.forestScheme.sets i) := by
   change 0 < Forest.graph.revealBits (Forest.fins (Forest.setsName i))
   rw [Forest.revealBits_eq]
@@ -45,7 +45,7 @@ theorem reveal_positive (i : Idx paperParams) :
   omega
 
 theorem accepted_payload_positive (pk : PublicKey paperParams) (m : Message paperParams)
-    (σ : Signature paperParams) (accepted : true ∈ support (Forest.forestScheme.verify pk m σ)) :
+    (σ : Signature paperDagFormat) (accepted : true ∈ support (Forest.forestScheme.verify pk m σ)) :
     0 < σ.2.length := by
   rw [GScheme.verify, support_bind] at accepted
   simp only [Set.mem_iUnion] at accepted
@@ -71,15 +71,15 @@ def scheme : AlgorithmScheme paperParams := WireAdapter.scheme RiscvUpperForest.
 theorem secure : scheme.Secure :=
   WireAdapter.secure RiscvUpperForest.scheme decode decode_encode canonical RiscvUpperForest.secure
 
-theorem admissible : scheme.Admissible AlgorithmScheme.paperLimits (1 / 2 ^ 128) :=
+theorem admissible : scheme.Admissible (1 / 2 ^ 128) :=
   WireAdapter.admissible RiscvUpperForest.scheme decode decode_encode canonical
-    AlgorithmScheme.paperLimits (1 / 2 ^ 128) RiscvUpperForest.admissible
+    (1 / 2 ^ 128) RiscvUpperForest.admissible
 
 theorem cost : scheme.VerifyCostAtMost 186 :=
   WireAdapter.verifyCost RiscvUpperForest.scheme decode 186 RiscvUpperForest.cost
 
 /-- A complete OTS certificate on its transmitted signature bits. -/
-theorem certificate : scheme.Admissible AlgorithmScheme.paperLimits (1 / 2 ^ 128) ∧
+theorem certificate : scheme.Admissible (1 / 2 ^ 128) ∧
     scheme.Secure ∧ scheme.VerifyCostAtMost 186 := ⟨admissible, secure, cost⟩
 
 /--

@@ -13,14 +13,14 @@ namespace OptimalOTS.PatternAttack
 
 open BareLower
 
-variable (S : Scheme paperParams)
+variable (S : Scheme paperParams paperDagFormat)
 
 attribute [local irreducible] signIdx signIdxLoop Scheme.sign Scheme.signLoop
   weakExperiment forge adversary Graph.encode Scheme.hashPattern Scheme.samePattern goodIndices
 
 /-- The continuation after the signer has selected its nonce and disclosure index. -/
 def afterSign (T : ℕ) (pk : PublicKey paperParams) (x : S.graph.Assignment)
-    (m : Message paperParams) (r : Option (Nonce paperParams × Fin paperParams.numSets)) :
+    (m : Message paperParams) (r : Option (Nonce paperDagFormat × Fin paperDagFormat.numSets)) :
     OracleComp (Spec paperParams) Bool := do
   let σ := r.map fun p => (p.1, S.graph.encode (S.sets p.2) x)
   let out ← forge S T m σ
@@ -31,13 +31,13 @@ theorem experiment_eq (T : ℕ) :
     weakExperiment S (adversary S T) = (do
       let (pk,x) ← S.keygen
       let m ← sampleBits paperParams paperParams.msgBits
-      let r ← signIdx paperParams m
+      let r ← signIdx paperParams paperDagFormat m
       afterSign S T pk x m r) := by
   simp only [weakExperiment, adversary, sign_eq_map, afterSign,
     map_eq_bind_pure_comp, bind_assoc, pure_bind, Function.comp_apply]
 
 theorem afterSign_some (T : ℕ) (x : S.graph.Assignment) (m : Message paperParams)
-    (η : Nonce paperParams) (i : Fin paperParams.numSets) :
+    (η : Nonce paperDagFormat) (i : Fin paperDagFormat.numSets) :
     afterSign S T (S.publicKey x) x m (some (η,i)) =
       forge S T m (some (η,S.graph.encode (S.sets i) x)) >>= check S (S.publicKey x) m := by
   simp only [afterSign, Option.map_some, Option.isNone_some, Bool.false_or, check]

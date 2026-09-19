@@ -10,7 +10,7 @@ set_option allowUnsafeReducibility true
 attribute [local reducible] Forest.graph
 attribute [local irreducible] Forest.fixedPositions Forest.fixedDigits
 
-variable (index : Idx paperParams) (payload : List Bool) (pk : PublicKey paperParams)
+variable (index : Idx paperDagFormat) (payload : List Bool) (pk : PublicKey paperParams)
 
 /-! ## The root -/
 

@@ -61,7 +61,7 @@ def FrameInputs (s t : MachineState) : Prop :=
   ∀ addr : Word, addr.toNat < chainsBase → t.getMem addr = s.getMem addr
 
 /-- The reconstruction context survives any writes at or above the chain array. -/
-theorem _root_.OptimalOTS.RiscvUpperProgram.ExecutionContext.frameInputs {s t : MachineState} {index : Idx paperParams}
+theorem _root_.OptimalOTS.RiscvUpperProgram.ExecutionContext.frameInputs {s t : MachineState} {index : Idx paperDagFormat}
     {payload : List Bool} {pk : PublicKey paperParams}
     (context : ExecutionContext s index payload pk) (frame : FrameInputs s t)
     (base : t.getReg .x8 = s.getReg .x8) : ExecutionContext t index payload pk := by

@@ -21,41 +21,41 @@ attribute [local irreducible] Finset.univ Finset.filter validSet numValid
 
 /-- Failure probability of one fresh index query. -/
 def miss : ℝ≥0∞ :=
-  ((2 ^ 256 - numValid paperParams * 2 ^ 128 : ℕ) : ℝ≥0∞) * (((2 ^ 256 : ℕ) : ℝ≥0∞))⁻¹
+  ((2 ^ 256 - numValid paperDagFormat * 2 ^ 128 : ℕ) : ℝ≥0∞) * (((2 ^ 256 : ℕ) : ℝ≥0∞))⁻¹
 
-theorem miss_eq : miss = ((2 ^ 256 - numValid paperParams * 2 ^ 128 : ℕ) : ℝ≥0∞) / 2 ^ 256 := by
+theorem miss_eq : miss = ((2 ^ 256 - numValid paperDagFormat * 2 ^ 128 : ℕ) : ℝ≥0∞) / 2 ^ 256 := by
   rw [miss, div_eq_mul_inv, Nat.cast_pow, Nat.cast_ofNat]
 
 /-- At least `2 ^ 115` of the `2 ^ 128` indices are accepted. -/
 theorem miss_le : miss ≤ 8191 / 8192 := by
-  have hN : 2 ^ 243 ≤ numValid paperParams * 2 ^ 128 :=
+  have hN : 2 ^ 243 ≤ numValid paperDagFormat * 2 ^ 128 :=
     calc 2 ^ 243 = 2 ^ 115 * 2 ^ 128 := by norm_num
       _ ≤ _ := Nat.mul_le_mul_right _ numValid_ge
-  have ha : 2 ^ 256 - numValid paperParams * 2 ^ 128 ≤ 8191 * 2 ^ 243 := by
+  have ha : 2 ^ 256 - numValid paperDagFormat * 2 ^ 128 ≤ 8191 * 2 ^ 243 := by
     have h := Nat.sub_le_sub_left hN (2 ^ 256)
     have e : 2 ^ 256 - 2 ^ 243 = 8191 * 2 ^ 243 := by norm_num
     omega
-  calc miss = ((2 ^ 256 - numValid paperParams * 2 ^ 128 : ℕ) : ℝ≥0∞) / 2 ^ 256 := miss_eq
+  calc miss = ((2 ^ 256 - numValid paperDagFormat * 2 ^ 128 : ℕ) : ℝ≥0∞) / 2 ^ 256 := miss_eq
     _ ≤ ((8191 * 2 ^ 243 : ℕ) : ℝ≥0∞) / 2 ^ 256 := ENNReal.div_le_div_right (Nat.cast_le.mpr ha) _
     _ = 8191 / 8192 := by
       rw [ENNReal.div_eq_div_iff (by norm_num) (by finiteness) (by norm_num) (by finiteness)]
       norm_num
 
-private theorem uniform_miss_count (P : Params) (hidx : P.idxBits ≤ P.hashBits)
-    (hM : numValid P ≤ 2 ^ P.idxBits) (a : ℝ≥0∞) :
-    E ($ᵗ BitVec P.hashBits) (fun w => if idxOf P w ∈ validSet P then 0 else a) =
-      ((2 ^ P.hashBits - numValid P * 2 ^ (P.hashBits - P.idxBits) : ℕ) : ℝ≥0∞) *
+private theorem uniform_miss_count (P : Params) (F : DagFormat) (hidx : F.idxBits ≤ P.hashBits)
+    (hM : numValid F ≤ 2 ^ F.idxBits) (a : ℝ≥0∞) :
+    E ($ᵗ BitVec P.hashBits) (fun w => if idxOf P F w ∈ validSet F then 0 else a) =
+      ((2 ^ P.hashBits - numValid F * 2 ^ (P.hashBits - F.idxBits) : ℕ) : ℝ≥0∞) *
         (((2 ^ P.hashBits : ℕ) : ℝ≥0∞)⁻¹ * a) := by
-  have hv : (Finset.univ.filter fun w : BitVec P.hashBits => idxOf P w ∈ validSet P).card =
-      numValid P * 2 ^ (P.hashBits - P.idxBits) := by
-    have h := Analysis.card_idxOfOut_mem (P := P) hidx (validSet P)
+  have hv : (Finset.univ.filter fun w : BitVec P.hashBits => idxOf P F w ∈ validSet F).card =
+      numValid F * 2 ^ (P.hashBits - F.idxBits) := by
+    have h := Analysis.card_idxOfOut_mem (P := P) hidx (validSet F)
       (fun n hn => mem_validSet_lt hn)
     convert h using 1 <;> simp [Analysis.idxOfOut, idxOf, numValid]
-  have hn : (Finset.univ.filter fun w : BitVec P.hashBits => ¬ idxOf P w ∈ validSet P).card =
-      2 ^ P.hashBits - numValid P * 2 ^ (P.hashBits - P.idxBits) := by
+  have hn : (Finset.univ.filter fun w : BitVec P.hashBits => ¬ idxOf P F w ∈ validSet F).card =
+      2 ^ P.hashBits - numValid F * 2 ^ (P.hashBits - F.idxBits) := by
     have h := Finset.card_filter_add_card_filter_not
       (s := (Finset.univ : Finset (BitVec P.hashBits)))
-      (p := fun w => idxOf P w ∈ validSet P)
+      (p := fun w => idxOf P F w ∈ validSet F)
     rw [hv, Finset.card_univ, Fintype.card_bitVec] at h
     omega
   rw [E_uniform]
@@ -65,19 +65,19 @@ private theorem uniform_miss_count (P : Params) (hidx : P.idxBits ≤ P.hashBits
 
 private theorem uniform_miss (a : ℝ≥0∞) :
     E ($ᵗ BitVec paperParams.hashBits)
-      (fun w => if idxOf paperParams w ∈ validSet paperParams then 0 else a) = miss * a := by
-  rw [uniform_miss_count paperParams (by decide) (numValid_le paperParams), ← mul_assoc]
+      (fun w => if idxOf paperParams paperDagFormat w ∈ validSet paperDagFormat then 0 else a) = miss * a := by
+  rw [uniform_miss_count paperParams (F := paperDagFormat) (by decide) (numValid_le paperDagFormat), ← mul_assoc]
   have h1 : paperParams.hashBits = 256 := rfl
-  have h2 : paperParams.hashBits - paperParams.idxBits = 128 := rfl
+  have h2 : paperParams.hashBits - paperDagFormat.idxBits = 128 := rfl
   rw [h2, h1]
   rfl
 
 /-- Exact failure probability while enough untried nonces remain and their queries are fresh. -/
 theorem loop_failure (m : Message paperParams) :
-    ∀ (k : ℕ) (tried : Finset (Nonce paperParams)) (c : Cache paperParams),
-      tried.card + k ≤ 2 ^ paperParams.nonceBits →
-      (∀ η ∉ tried, c (encQuery paperParams (m ++ η)) = none) →
-      E (run paperParams (signIdxLoop paperParams m k tried) c)
+    ∀ (k : ℕ) (tried : Finset (Nonce paperDagFormat)) (c : Cache paperParams),
+      tried.card + k ≤ 2 ^ paperDagFormat.nonceBits →
+      (∀ η ∉ tried, c (encQuery paperParams paperDagFormat (m ++ η)) = none) →
+      E (run paperParams (signIdxLoop paperParams paperDagFormat m k tried) c)
         (fun p => if p.1.isNone then 1 else 0) = miss ^ k := by
   intro k
   induction k with
@@ -89,24 +89,24 @@ theorem loop_failure (m : Message paperParams) :
     have hc : 0 < (Finset.univ \ tried).card := by
       rw [Finset.card_univ_sdiff, Fintype.card_bitVec]
       omega
-    rw [signIdxLoop_succ paperParams m k tried hc, run_query_bind, oracleImpl_run_inl]
+    rw [signIdxLoop_succ paperParams paperDagFormat m k tried hc, run_query_bind, oracleImpl_run_inl]
     simp only [bind_assoc, pure_bind, E_bind]
     have hbody : ∀ j,
-        E (run paperParams (loopBody paperParams m k tried (nonceOf paperParams tried hc j)) c)
+        E (run paperParams (loopBody paperParams paperDagFormat m k tried (nonceOf paperDagFormat tried hc j)) c)
           (fun p => if p.1.isNone then 1 else 0) = miss ^ (k + 1) := by
       intro j
-      let η := nonceOf paperParams tried hc j
-      have hη : η ∉ tried := (Finset.mem_sdiff.mp (nonceOf_mem paperParams tried hc j)).2
+      let η := nonceOf paperDagFormat tried hc j
+      have hη : η ∉ tried := (Finset.mem_sdiff.mp (nonceOf_mem paperDagFormat tried hc j)).2
       rw [loopBody, run_query_bind, oracleImpl_run_inr_none paperParams (hfresh η hη)]
       simp only [bind_assoc, pure_bind, E_bind]
       have hkont : ∀ w : BitVec paperParams.hashBits,
-          E (run paperParams (afterHash paperParams m k tried η w)
-            (c.cacheQuery (encQuery paperParams (m ++ η)) w))
+          E (run paperParams (afterHash paperParams paperDagFormat m k tried η w)
+            (c.cacheQuery (encQuery paperParams paperDagFormat (m ++ η)) w))
             (fun p => if p.1.isNone then 1 else 0) =
-          if idxOf paperParams w ∈ validSet paperParams then 0 else miss ^ k := by
+          if idxOf paperParams paperDagFormat w ∈ validSet paperDagFormat then 0 else miss ^ k := by
         intro w
         unfold afterHash
-        by_cases hw : idxOf paperParams w ∈ validSet paperParams
+        by_cases hw : idxOf paperParams paperDagFormat w ∈ validSet paperDagFormat
         · rw [dif_pos hw, if_pos hw, run_pure, E_pure]
           rfl
         · rw [dif_neg hw, if_neg hw]
@@ -114,15 +114,15 @@ theorem loop_failure (m : Message paperParams) :
           · rw [Finset.card_insert_of_notMem hη]
             omega
           · intro η' hη'
-            have hne : encQuery paperParams (m ++ η') ≠ encQuery paperParams (m ++ η) := by
+            have hne : encQuery paperParams paperDagFormat (m ++ η') ≠ encQuery paperParams paperDagFormat (m ++ η) := by
               intro heq
-              have he := append_nonce_inj paperParams m (encQuery_inj paperParams heq)
+              have he := append_nonce_inj paperParams paperDagFormat m (encQuery_inj paperParams paperDagFormat heq)
               exact hη' (he ▸ Finset.mem_insert_self η tried)
             rw [QueryCache.cacheQuery_of_ne _ _ hne]
             exact hfresh η' (fun h => hη' (Finset.mem_insert_of_mem h))
       calc
         _ = E ($ᵗ BitVec paperParams.hashBits)
-            (fun w => if idxOf paperParams w ∈ validSet paperParams then 0 else miss ^ k) := by
+            (fun w => if idxOf paperParams paperDagFormat w ∈ validSet paperDagFormat then 0 else miss ^ k) := by
           congr 1
           funext w
           exact hkont w
@@ -165,7 +165,7 @@ private theorem miss_block : miss ^ 8192 ≤ 1 / 2 := by
   rwa [hb, hh] at h'
 
 /-- The full signing budget contains 128 blocks, each with failure at most one half. -/
-theorem miss_trials_le : miss ^ paperParams.trialLimit ≤ 1 / 2 ^ 128 := by
+theorem miss_trials_le : miss ^ paperDagFormat.trialLimit ≤ 1 / 2 ^ 128 := by
   change miss ^ (8192 * 128) ≤ 1 / 2 ^ 128
   rw [pow_mul]
   calc
@@ -174,12 +174,12 @@ theorem miss_trials_le : miss ^ paperParams.trialLimit ≤ 1 / 2 ^ 128 := by
 
 /-- Signing has the same failure probability for every message and every fresh index cache. -/
 theorem sign_failure (x : forestScheme.graph.Assignment) (m : Message paperParams)
-    (c : Cache paperParams) (hfresh : ∀ η : Nonce paperParams, c (encQuery paperParams (m ++ η)) = none) :
+    (c : Cache paperParams) (hfresh : ∀ η : Nonce paperDagFormat, c (encQuery paperParams paperDagFormat (m ++ η)) = none) :
     E (run paperParams (forestScheme.sign x m) c)
-      (fun p => if p.1.isNone then 1 else 0) = miss ^ paperParams.trialLimit := by
+      (fun p => if p.1.isNone then 1 else 0) = miss ^ paperDagFormat.trialLimit := by
   rw [sign_eq_map, run_map, E_map]
   simp only [Option.isNone_map]
-  exact loop_failure m _ ∅ c (by norm_num [paperParams]) (fun η _ => hfresh η)
+  exact loop_failure m _ ∅ c (by norm_num [paperDagFormat]) (fun η _ => hfresh η)
 
 /-- Failure remains bounded even when the message is chosen after seeing the public key. -/
 theorem signingFailure_strong :
@@ -193,7 +193,7 @@ theorem signingFailure_strong :
   simp only [run_bind, E_bind, run_pure, E_pure]
   have hs : ∀ ξ : Rec,
       E (run paperParams (forestScheme.sign (graph.evalRec ξ) (message (pkOf ξ))) (kc ξ))
-        (fun p => if p.1.isNone then 1 else 0) = miss ^ paperParams.trialLimit := by
+        (fun p => if p.1.isNone then 1 else 0) = miss ^ paperDagFormat.trialLimit := by
     intro ξ
     exact sign_failure _ _ _ (fun η => kc_enc ξ _)
   simp_rw [hs]

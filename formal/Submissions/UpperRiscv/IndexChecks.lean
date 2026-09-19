@@ -626,7 +626,7 @@ theorem checkedIndexState_hash_rank (image : Riscv.Image) (pk : PublicKey paperP
   rw [low, high, answer_low128]
 
 /-- The accepted index as a valid index. -/
-def acceptedIdx (answer : BitVec 256) (hi : Accepted (answer.setWidth 128).toNat) : Idx paperParams :=
+def acceptedIdx (answer : BitVec 256) (hi : Accepted (answer.setWidth 128).toNat) : Idx paperDagFormat :=
   ⟨(answer.setWidth 128).toNat, mem_validSet.mpr ⟨(answer.setWidth 128).isLt, hi⟩⟩
 
 theorem acceptedIdx_val (answer : BitVec 256) (hi : Accepted (answer.setWidth 128).toNat) :

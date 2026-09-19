@@ -25,25 +25,25 @@ theorem fixed_active (k : Fin 63) : k ∈ active fixedE fixedG ↔ k.val < 36 :=
     Finset.mem_insert, Finset.mem_singleton, subtreeOfChain, groupOfChain, Fin.ext_iff]
   omega
 
-theorem nibble_le (i : Idx paperParams) (k : ℕ) (hk : k < 32) : nibble i.val k ≤ 14 :=
+theorem nibble_le (i : Idx paperDagFormat) (k : ℕ) (hk : k < 32) : nibble i.val k ≤ 14 :=
   (mem_validSet_accepted i.2).1 k (Finset.mem_range.mpr hk)
 
-theorem nibble_sum (i : Idx paperParams) : ∑ k ∈ Finset.range 32, nibble i.val k = target :=
+theorem nibble_sum (i : Idx paperDagFormat) : ∑ k ∈ Finset.range 32, nibble i.val k = target :=
   (mem_validSet_accepted i.2).2
 
 /-- The chain digits of an accepted index: its 32 nibbles, then four zeros. -/
-def fixedDigits (i : Idx paperParams) (k : Fin 36) : Fin 15 :=
+def fixedDigits (i : Idx paperDagFormat) (k : Fin 36) : Fin 15 :=
   if hk : k.val < 32 then ⟨nibble i.val k, Nat.lt_succ_of_le (nibble_le i k hk)⟩ else 0
 
 /-- The digit function on naturals. -/
-def digitAt (i : Idx paperParams) (k : ℕ) : ℕ := if k < 32 then nibble i.val k else 0
+def digitAt (i : Idx paperDagFormat) (k : ℕ) : ℕ := if k < 32 then nibble i.val k else 0
 
-theorem fixedDigits_val (i : Idx paperParams) (k : Fin 36) :
+theorem fixedDigits_val (i : Idx paperDagFormat) (k : Fin 36) :
     (fixedDigits i k).val = digitAt i k.val := by
   unfold fixedDigits digitAt
   split_ifs <;> rfl
 
-theorem fixedDigits_sum (i : Idx paperParams) : ∑ k, (fixedDigits i k).val = target := by
+theorem fixedDigits_sum (i : Idx paperDagFormat) : ∑ k, (fixedDigits i k).val = target := by
   simp only [fixedDigits_val]
   rw [Fin.sum_univ_eq_sum_range (digitAt i) 36]
   rw [Finset.sum_range_succ, Finset.sum_range_succ, Finset.sum_range_succ, Finset.sum_range_succ]
@@ -65,17 +65,17 @@ theorem fixedDigits_injective : Function.Injective fixedDigits := by
   simp only [fixedDigits_val, digitAt, if_pos hk'] at e
   rw [e]
 
-def fixedPositions (i : Idx paperParams) (k : Fin 63) : Fin 15 :=
+def fixedPositions (i : Idx paperDagFormat) (k : Fin 63) : Fin 15 :=
   if hk : k.val < 36 then Fin.rev (fixedDigits i ⟨k.val, hk⟩) else 14
 
-def fixedChoice (i : Idx paperParams) : Choice := (fixedE, fixedG, fixedPositions i)
+def fixedChoice (i : Idx paperDagFormat) : Choice := (fixedE, fixedG, fixedPositions i)
 
-theorem fixedPositions_normal (i : Idx paperParams) :
+theorem fixedPositions_normal (i : Idx paperDagFormat) :
     ∀ k ∉ active fixedE fixedG, fixedPositions i k = 14 := by
   intro k hk
   simp only [fixedPositions, dif_neg (mt (fixed_active k).mpr hk)]
 
-theorem fixedPositions_sum (i : Idx paperParams) :
+theorem fixedPositions_sum (i : Idx paperDagFormat) :
     ∑ k ∈ active fixedE fixedG, (14 - (fixedPositions i k).val) = target := by
   rw [← fixedDigits_sum i]
   apply Finset.sum_bij (fun k hk => (⟨k.val, (fixed_active k).mp hk⟩ : Fin 36))
@@ -88,7 +88,7 @@ theorem fixedPositions_sum (i : Idx paperParams) :
     have := (fixedDigits i ⟨k.val, (fixed_active k).mp hk⟩).isLt
     omega
 
-theorem fixedPositions_mem (i : Idx paperParams) :
+theorem fixedPositions_mem (i : Idx paperDagFormat) :
     fixedPositions i ∈ positions (active fixedE fixedG) target :=
   (mem_positions _ _ _).mpr ⟨fixedPositions_normal i, fixedPositions_sum i⟩
 
@@ -103,10 +103,10 @@ theorem fixedCut_injective : Function.Injective (fun i => cutOf (fixedChoice i))
   have hp := congrFun (congrArg (fun c : Choice => c.2.2) hc) ⟨k.val, by omega⟩
   simpa [fixedChoice, fixedPositions, k.isLt] using hp
 
-theorem fixedCut_isCut (i : Idx paperParams) : IsCut (cutOf (fixedChoice i)) :=
+theorem fixedCut_isCut (i : Idx paperDagFormat) : IsCut (cutOf (fixedChoice i)) :=
   isCut_cutOf_of_subset fixedG_allowed
 
-theorem fixedCut_card (i : Idx paperParams) : (cutOf (fixedChoice i)).card ≤ 41 := by
+theorem fixedCut_card (i : Idx paperDagFormat) : (cutOf (fixedChoice i)).card ≤ 41 := by
   have h1 := Finset.card_union_le (fixedE.image Name.ev ∪ fixedG.image Name.gv)
     ((active fixedE fixedG).image fun k => chainNode k (fixedPositions i k))
   have h2 := Finset.card_union_le (fixedE.image Name.ev) (fixedG.image Name.gv)
@@ -122,7 +122,7 @@ theorem fixedCut_card (i : Idx paperParams) : (cutOf (fixedChoice i)).card ≤ 4
   omega
 
 /-- Every disclosure set costs `target + 19 = 185` compressions to reconstruct. -/
-theorem fixedCut_cost (i : Idx paperParams) :
+theorem fixedCut_cost (i : Idx paperDagFormat) :
     ∑ n ∈ evaluatedSet (cutOf (fixedChoice i)), n.cost = 185 := by
   rw [cost_cutOf_of_positions fixedG_allowed (fixedPositions_mem i)]
   change target + (21 - 3 * fixedE.card - fixedG.card) + (7 - fixedE.card) + 2 = 185

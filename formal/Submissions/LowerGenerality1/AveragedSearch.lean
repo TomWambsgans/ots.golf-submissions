@@ -13,12 +13,12 @@ def hitRate (k : ℕ) : ℝ≥0∞ := (k : ℝ≥0∞) / (64 + k)
 
 theorem paper_success_ge (G : Finset ℕ) (hG : ∀ j ∈ G, j < 2 ^ 128)
     (m : Message paperParams) (c : Cache paperParams)
-    (hc : BareLower.FreshMessage c m) :
+    (hc : BareLower.FreshMessage paperDagFormat c m) :
     hitRate G.card ≤
-      E (run paperParams (PatternSearch.search paperParams G m (2 ^ 122) 0) c)
+      E (run paperParams (PatternSearch.search paperParams paperDagFormat G m (2 ^ 122) 0) c)
         (fun p => if p.1.isSome then 1 else 0) := by
   rw [PatternSearch.success_eq (by decide) G hG m (2 ^ 122) 0 c
-    (by norm_num [paperParams]) (PatternSearch.freshRange_of_freshMessage hc _ _)]
+    (by norm_num [paperDagFormat]) (PatternSearch.freshRange_of_freshMessage hc _ _)]
   change hitRate G.card ≤ 1 - (1 - (G.card : ℝ≥0∞) / 2 ^ 128) ^ (2 ^ 122)
   have hcard : G.card ≤ 2 ^ 128 := by
     calc G.card ≤ (Finset.range (2 ^ 128)).card :=

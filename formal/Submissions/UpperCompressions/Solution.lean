@@ -9,7 +9,7 @@ noncomputable def scheme : AlgorithmScheme paperParams := GenericUpperForest.sch
 
 /-- Perfect correctness, signing failure at most `2⁻¹²⁸`, and the paper's resource limits. -/
 theorem admissible :
-    scheme.Admissible AlgorithmScheme.paperLimits (1 / 2 ^ 128) := GenericUpperForest.admissible
+    scheme.Admissible (1 / 2 ^ 128) := GenericUpperForest.admissible
 
 /-- 127-bit strong unforgeability in the shared random-oracle experiment. -/
 theorem secure : scheme.Secure := GenericUpperForest.secure

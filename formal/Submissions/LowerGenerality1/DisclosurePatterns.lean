@@ -8,7 +8,7 @@ noncomputable section
 open scoped Classical
 namespace OptimalOTS
 namespace Graph
-variable {P : Params} (G : Graph P)
+variable {P : Params} {F : DagFormat} (G : Graph P)
 
 /-- `HashOrigin h v` reaches hash node `h` from `v` without passing another hash. -/
 inductive HashOrigin : Fin G.size → Fin G.size → Prop
@@ -25,7 +25,7 @@ def disclosureOrigins (A : Finset (Fin G.size)) : Finset (Fin G.size) :=
   A.biUnion G.hashOrigins
 
 /-- Every disclosure set has at most `b` distinct hash origins. -/
-def _root_.OptimalOTS.Scheme.DisclosureBound (S : Scheme P) (b : ℕ) : Prop :=
+def _root_.OptimalOTS.Scheme.DisclosureBound (S : Scheme P F) (b : ℕ) : Prop :=
   ∀ i, (S.graph.disclosureOrigins (S.sets i)).card ≤ b
 
 @[simp] theorem mem_hashOrigins {h v : Fin G.size} :
@@ -64,10 +64,10 @@ theorem origin_disclosed_of_visited {A : Finset (Fin G.size)} {h v : Fin G.size}
 
 end Graph
 namespace Scheme
-variable {P : Params} (S : Scheme P)
+variable {P : Params} {F : DagFormat} (S : Scheme P F)
 
 /-- Along a visited path, an undisclosed missing origin has a strictly later missing hash. -/
-theorem origin_disclosed_or_later (i j : Fin P.numSets) {v : Fin S.graph.size}
+theorem origin_disclosed_or_later (i j : Fin F.numSets) {v : Fin S.graph.size}
     (hv : S.graph.Visited (S.sets i) v) :
     ∀ h, S.graph.HashOrigin h v → h ∉ S.graph.evalHash (S.sets j) →
       h ∈ S.graph.disclosureOrigins (S.sets j) ∨
@@ -96,7 +96,7 @@ theorem origin_disclosed_or_later (i j : Fin P.numSets) {v : Fin S.graph.size}
     · exact ih h (Graph.HashOrigin.step hwh hp ho) hn
 
 /-- The maximal difference of two reconstruction patterns is an origin of the second payload. -/
-theorem max_difference_disclosed (i j : Fin P.numSets) (v : Fin S.graph.size)
+theorem max_difference_disclosed (i j : Fin F.numSets) (v : Fin S.graph.size)
     (hv : v ∈ S.hashPattern i \ S.hashPattern j)
     (hmax : ∀ w ∈ S.hashPattern i \ S.hashPattern j, w ≤ v) :
     v ∈ S.graph.disclosureOrigins (S.sets j) := by
@@ -115,26 +115,26 @@ theorem max_difference_disclosed (i j : Fin P.numSets) (v : Fin S.graph.size)
     exact (not_lt_of_ge (hmax g hgp) hvg).elim
 
 /-- At most 41 disclosed origins and cost at most 92 give at most `choose 131 41` patterns. -/
-theorem card_hashPattern_image_le_disclosure (S : Scheme paperParams)
+theorem card_hashPattern_image_le_disclosure (S : Scheme paperParams paperDagFormat)
     (hdis : S.DisclosureBound 41) (hcost : ∀ i, S.verifyCost i ≤ 92) :
     (Finset.univ.image S.hashPattern).card ≤ Nat.choose 131 41 := by
-  let F := Finset.univ.image S.hashPattern
-  let idx (a : Finset (Fin S.graph.size)) : Fin paperParams.numSets :=
+  let Fn := Finset.univ.image S.hashPattern
+  let idx (a : Finset (Fin S.graph.size)) : Fin paperDagFormat.numSets :=
     if h : ∃ i, S.hashPattern i = a then Classical.choose h else ⟨0, by decide⟩
-  have hidx : ∀ a ∈ F, S.hashPattern (idx a) = a := by
+  have hidx : ∀ a ∈ Fn, S.hashPattern (idx a) = a := by
     intro a ha
     obtain ⟨i, _, hi⟩ := Finset.mem_image.mp ha
     have he : ∃ i, S.hashPattern i = a := ⟨i, hi⟩
     simp only [idx, dif_pos he]
     exact Classical.choose_spec he
-  have hA : ∀ a ∈ F, a.card ≤ 90 := by
+  have hA : ∀ a ∈ Fn, a.card ≤ 90 := by
     intro a ha
     rw [← hidx a ha]
     have hc := hcost (idx a)
     have hp := S.card_hashPattern_le (idx a)
     change 1 + S.graph.reconstructCost (S.sets (idx a)) ≤ 92 at hc
     omega
-  have h := DisclosureCounting.card_le_choose 90 41 F id
+  have h := DisclosureCounting.card_le_choose 90 41 Fn id
     (fun a => S.graph.disclosureOrigins (S.sets (idx a)))
     (fun _ _ _ _ he => he) hA (fun a _ => hdis (idx a)) (by
       intro a ha b hb v hv hm

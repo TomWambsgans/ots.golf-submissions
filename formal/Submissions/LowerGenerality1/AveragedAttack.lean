@@ -10,7 +10,7 @@ open scoped Classical
 namespace OptimalOTS.AveragedAttack
 open PatternAttack
 
-theorem forgeFrom_success_ge (S : Scheme paperParams) (i : Fin paperParams.numSets)
+theorem forgeFrom_success_ge (S : Scheme paperParams paperDagFormat) (i : Fin paperDagFormat.numSets)
     (x : S.graph.Assignment) (c : Cache paperParams)
     (hc : S.graph.CacheConsistent x c)
     (D : Finset Query) (hD : BareLower.HasSupport c D) (hcardD : D.card ≤ 2 ^ 22)
@@ -23,7 +23,7 @@ theorem forgeFrom_success_ge (S : Scheme paperParams) (i : Fin paperParams.numSe
   rw [bind_assoc, run_bind, E_bind, sampleBits, run_liftM, E_map]
   have hmass := BareLower.fresh_new_mass_paper_99 hD hcardD m₁
   refine le_trans ?_ (BareLower.expectedValue_ge_indicator ($ᵗ BitVec paperParams.msgBits)
-    (fun m₂ => BareLower.FreshMessage c m₂ ∧ m₂ ≠ m₁) _ (AveragedSearch.hitRate (S.samePattern i).card) ?_)
+    (fun m₂ => BareLower.FreshMessage paperDagFormat c m₂ ∧ m₂ ≠ m₁) _ (AveragedSearch.hitRate (S.samePattern i).card) ?_)
   · refine (mul_le_mul_left hmass (AveragedSearch.hitRate (S.samePattern i).card)).trans ?_
     apply mul_le_mul_left
     apply E_mono
@@ -42,21 +42,21 @@ theorem forgeFrom_success_ge (S : Scheme paperParams) (i : Fin paperParams.numSe
     rw [card_targets] at hh
     exact hh.trans (search_check_ge S _ i x m₁ m₂ hm₂.2 c hc)
 
-theorem forge_success_ge (S : Scheme paperParams) (i : Fin paperParams.numSets)
+theorem forge_success_ge (S : Scheme paperParams paperDagFormat) (i : Fin paperDagFormat.numSets)
     (x : S.graph.Assignment) (c : Cache paperParams)
     (hc : S.graph.CacheConsistent x c)
     (D : Finset Query) (hD : BareLower.HasSupport c D) (hcardD : D.card ≤ 2 ^ 22)
-    (m₁ : Message paperParams) (η₁ : Nonce paperParams)
+    (m₁ : Message paperParams) (η₁ : Nonce paperDagFormat)
     (w : BitVec paperParams.hashBits)
-    (hw : c ⟨paperParams.msgBits + paperParams.nonceBits,m₁ ++ η₁⟩ = some w)
-    (hidx : (w.setWidth paperParams.idxBits).toNat = i.val) :
+    (hw : c ⟨paperParams.msgBits + paperDagFormat.nonceBits,m₁ ++ η₁⟩ = some w)
+    (hidx : (w.setWidth paperDagFormat.idxBits).toNat = i.val) :
     (99 / 100 : ℝ≥0∞) * AveragedSearch.hitRate (S.samePattern i).card ≤ E (run paperParams
       (forge S (2 ^ 122) m₁ (some (η₁,S.graph.encode (S.sets i) x)) >>=
         check S (S.publicKey x) m₁) c) win := by
   unfold forge
   rw [bind_assoc, run_bind, Conversion.run_index_cached m₁ η₁ c w hw, E_bind, E_pure]
   dsimp only
-  generalize (w.setWidth paperParams.idxBits).toNat = n at hidx ⊢
+  generalize (w.setWidth paperDagFormat.idxBits).toNat = n at hidx ⊢
   subst hidx
   rw [dif_pos i.isLt]
   simp only [Fin.eta, bind_assoc]

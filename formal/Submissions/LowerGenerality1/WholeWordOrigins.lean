@@ -108,7 +108,7 @@ theorem card_disclosureOrigins_mul128_le (hwhole : G.WholeWords)
 end Graph
 
 /-- The whole-word syntactic restriction implies the 41-origin bound from the payload budget. -/
-theorem Scheme.disclosureBound41_of_wholeWords (S : Scheme paperParams)
+theorem Scheme.disclosureBound41_of_wholeWords (S : Scheme paperParams paperDagFormat)
     (hwhole : S.graph.WholeWords) :
     S.DisclosureBound 41 := by
   intro i

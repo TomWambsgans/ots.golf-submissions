@@ -389,10 +389,10 @@ theorem foldl_recVal_update_of_not_mem (z : G.Assignment) (y : Fin G.size → Bi
   have hva : v ≠ a := fun h => ha (h ▸ hv)
   simp only [recVal, Function.update_of_ne hva]
 
-theorem foldl_cacheStep_update_of_not_mem (F : G.Assignment) (y : Fin G.size → BitVec P.hashBits)
+theorem foldl_cacheStep_update_of_not_mem (Fn : G.Assignment) (y : Fin G.size → BitVec P.hashBits)
     {a : Fin G.size} (u' : BitVec P.hashBits) (l : List (Fin G.size)) (ha : a ∉ l)
     (c : Cache P) :
-    l.foldl (G.cacheStep F (Function.update y a u')) c = l.foldl (G.cacheStep F y) c := by
+    l.foldl (G.cacheStep Fn (Function.update y a u')) c = l.foldl (G.cacheStep Fn y) c := by
   refine List.foldl_ext _ _ c fun c v hv => ?_
   have hva : v ≠ a := fun h => ha (h ▸ hv)
   simp only [cacheStep, Function.update_of_ne hva]
@@ -476,7 +476,7 @@ theorem E_run_evaluate (T : G.Tagging) (z : G.Assignment)
 end Graph
 
 /-- Key generation of a tagged graph is a uniform record. -/
-theorem E_run_keygen {P : Params} (S : GScheme P) (T : S.graph.Tagging)
+theorem E_run_keygen {P : Params} {F : DagFormat} (S : GScheme P F) (T : S.graph.Tagging)
     (g : (PublicKey P × S.graph.Assignment) × Cache P → ℝ≥0∞) :
     E (run P S.keygen ∅) g =
       ∑ ξ : S.graph.Rec, (Fintype.card S.graph.Rec : ℝ≥0∞)⁻¹ *
@@ -585,7 +585,7 @@ end Graph
 
 /-- A budget for `S.keygen >>= k` covers key generation and leaves `B - keygenCost` for the
 continuation at every record. -/
-theorem costAtMost_keygen_bind {P : Params} (S : GScheme P) {β : Type}
+theorem costAtMost_keygen_bind {P : Params} {F : DagFormat} (S : GScheme P F) {β : Type}
     (k : PublicKey P × S.graph.Assignment → OracleComp (Spec P) β) {B : ℕ}
     (h : CostAtMost P (S.keygen >>= k) B) :
     S.graph.keygenCost ≤ B ∧ ∀ ξ : S.graph.Rec,

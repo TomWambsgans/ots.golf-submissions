@@ -179,7 +179,7 @@ theorem paper_attack_gap :
 /-- Every admissible, secure algorithm under the paper limits needs a verification budget
 of at least one compression, for any signing-failure allowance at most one half. -/
 theorem paper_lowerBound_one {ε : ℝ≥0∞} (hε : ε ≤ 1 / 2) :
-    AlgorithmVerificationLowerBound paperParams AlgorithmScheme.paperLimits ε 1 := by
+    AlgorithmVerificationLowerBound paperParams ε 1 := by
   intro S hA hS v hv
   by_contra h
   have hv0 : v = 0 := by omega

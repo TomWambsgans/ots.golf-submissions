@@ -10,41 +10,41 @@ noncomputable section
 namespace OptimalOTS
 namespace FreshSign
 
-variable {P : Params}
+variable {P : Params} {F : DagFormat}
 
-def reward (G : Finset ℕ) : Option (Nonce P × Fin P.numSets) → ℝ≥0∞
+def reward (G : Finset ℕ) : Option (Nonce F × Fin F.numSets) → ℝ≥0∞
   | none => 0
   | some p => if p.2.val ∈ G then 1 else 0
 
 /-- For `0 < numSets ≤ 2^idxBits`, the probability of returning a fixed valid index
 within `k` independent uniform index trials, stopping at the first valid index. -/
-def rate (P : Params) (k : ℕ) : ℝ :=
-  (1 - (1 - (P.numSets : ℝ) / 2 ^ P.idxBits) ^ k) / P.numSets
+def rate (P : Params) (F : DagFormat) (k : ℕ) : ℝ :=
+  (1 - (1 - (F.numSets : ℝ) / 2 ^ F.idxBits) ^ k) / F.numSets
 
-lemma rate_nonneg (hM : P.numSets ≤ 2 ^ P.idxBits) (k : ℕ) : 0 ≤ rate P k := by
-  have hN : (0 : ℝ) < 2 ^ P.idxBits := by positivity
-  have hMN : (P.numSets : ℝ) ≤ 2 ^ P.idxBits := by exact_mod_cast hM
-  have hq : 0 ≤ 1 - (P.numSets : ℝ) / 2 ^ P.idxBits := by
+lemma rate_nonneg (hM : F.numSets ≤ 2 ^ F.idxBits) (k : ℕ) : 0 ≤ rate P F k := by
+  have hN : (0 : ℝ) < 2 ^ F.idxBits := by positivity
+  have hMN : (F.numSets : ℝ) ≤ 2 ^ F.idxBits := by exact_mod_cast hM
+  have hq : 0 ≤ 1 - (F.numSets : ℝ) / 2 ^ F.idxBits := by
     rw [sub_nonneg, div_le_one hN]; exact hMN
-  have hq1 : 1 - (P.numSets : ℝ) / 2 ^ P.idxBits ≤ 1 := sub_le_self _ (by positivity)
+  have hq1 : 1 - (F.numSets : ℝ) / 2 ^ F.idxBits ≤ 1 := sub_le_self _ (by positivity)
   unfold rate
   exact div_nonneg (sub_nonneg.mpr (pow_le_one₀ hq hq1)) (Nat.cast_nonneg _)
 
-lemma rate_succ (hM0 : 0 < P.numSets) (hM : P.numSets ≤ 2 ^ P.idxBits) (k : ℕ) :
-    ((2 ^ P.idxBits : ℕ) : ℝ≥0∞) * ENNReal.ofReal (rate P (k + 1)) =
-      1 + ((2 ^ P.idxBits - P.numSets : ℕ) : ℝ≥0∞) * ENNReal.ofReal (rate P k) := by
-  rw [← ENNReal.ofReal_natCast, ← ENNReal.ofReal_natCast (2 ^ P.idxBits - P.numSets),
+lemma rate_succ (hM0 : 0 < F.numSets) (hM : F.numSets ≤ 2 ^ F.idxBits) (k : ℕ) :
+    ((2 ^ F.idxBits : ℕ) : ℝ≥0∞) * ENNReal.ofReal (rate P F (k + 1)) =
+      1 + ((2 ^ F.idxBits - F.numSets : ℕ) : ℝ≥0∞) * ENNReal.ofReal (rate P F k) := by
+  rw [← ENNReal.ofReal_natCast, ← ENNReal.ofReal_natCast (2 ^ F.idxBits - F.numSets),
     ← ENNReal.ofReal_mul (Nat.cast_nonneg _), ← ENNReal.ofReal_mul (Nat.cast_nonneg _),
     ← ENNReal.ofReal_one,
     ← ENNReal.ofReal_add zero_le_one (mul_nonneg (Nat.cast_nonneg _) (rate_nonneg hM k))]
   congr 1
-  have hM0' : (0 : ℝ) < P.numSets := by exact_mod_cast hM0
-  have hN : (0 : ℝ) < 2 ^ P.idxBits := by positivity
+  have hM0' : (0 : ℝ) < F.numSets := by exact_mod_cast hM0
+  have hN : (0 : ℝ) < 2 ^ F.idxBits := by positivity
   rw [Nat.cast_sub hM]
   unfold rate
   push_cast
-  generalize (2 : ℝ) ^ P.idxBits = N at hN ⊢
-  generalize (P.numSets : ℝ) = M at hM0' ⊢
+  generalize (2 : ℝ) ^ F.idxBits = N at hN ⊢
+  generalize (F.numSets : ℝ) = M at hM0' ⊢
   have hN' : N ≠ 0 := hN.ne'
   have hM' : M ≠ 0 := hM0'.ne'
   have hq : N * (1 - M / N) = N - M := by field_simp
@@ -52,10 +52,10 @@ lemma rate_succ (hM0 : 0 < P.numSets) (hM : P.numSets ≤ 2 ^ P.idxBits) (k : �
   field_simp
   linear_combination (1 - M / N) ^ k * hq + M * (1 - M / N) ^ k * mul_inv_cancel₀ hN'
 
-lemma sum_bitVec_toNat {n : ℕ} (F : ℕ → ℝ≥0∞) :
-    ∑ b : BitVec n, F b.toNat = ∑ j ∈ Finset.range (2 ^ n), F j := by
+lemma sum_bitVec_toNat {n : ℕ} (Fn : ℕ → ℝ≥0∞) :
+    ∑ b : BitVec n, Fn b.toNat = ∑ j ∈ Finset.range (2 ^ n), Fn j := by
   rw [← Fin.sum_univ_eq_sum_range]
-  exact Equiv.sum_comp BitVec.equivFin.toEquiv (fun x : Fin (2 ^ n) => F x.val)
+  exact Equiv.sum_comp BitVec.equivFin.toEquiv (fun x : Fin (2 ^ n) => Fn x.val)
 
 lemma sum_range_mul_mod (a N : ℕ) (G : ℕ → ℝ≥0∞) :
     ∑ j ∈ Finset.range (a * N), G (j % N) = a * ∑ r ∈ Finset.range N, G r := by
@@ -67,21 +67,21 @@ lemma sum_range_mul_mod (a N : ℕ) (G : ℕ → ℝ≥0∞) :
     refine Finset.sum_congr rfl fun r hr => ?_
     rw [Nat.mul_add_mod', Nat.mod_eq_of_lt (Finset.mem_range.mp hr)]
 
-lemma sum_idxOf (hidx : P.idxBits ≤ P.hashBits) (G : ℕ → ℝ≥0∞) :
-    ∑ y : BitVec P.hashBits, G (idxOf P y) =
-      (2 ^ (P.hashBits - P.idxBits) : ℕ) * ∑ r ∈ Finset.range (2 ^ P.idxBits), G r := by
-  have hH : 2 ^ P.hashBits = 2 ^ (P.hashBits - P.idxBits) * 2 ^ P.idxBits := by
+lemma sum_idxOf (hidx : F.idxBits ≤ P.hashBits) (G : ℕ → ℝ≥0∞) :
+    ∑ y : BitVec P.hashBits, G (idxOf P F y) =
+      (2 ^ (P.hashBits - F.idxBits) : ℕ) * ∑ r ∈ Finset.range (2 ^ F.idxBits), G r := by
+  have hH : 2 ^ P.hashBits = 2 ^ (P.hashBits - F.idxBits) * 2 ^ F.idxBits := by
     rw [← pow_add, Nat.sub_add_cancel hidx]
   simp only [idxOf, BitVec.toNat_setWidth]
-  rw [sum_bitVec_toNat (fun j => G (j % 2 ^ P.idxBits)), hH, sum_range_mul_mod]
+  rw [sum_bitVec_toNat (fun j => G (j % 2 ^ F.idxBits)), hH, sum_range_mul_mod]
 
-lemma sum_branch (G : Finset ℕ) (hG : ∀ i ∈ G, i < P.numSets)
-    (hM : P.numSets ≤ 2 ^ P.idxBits) (v : ℝ≥0∞) :
-    (∑ r ∈ Finset.range (2 ^ P.idxBits),
-      if r < P.numSets then (if r ∈ G then 1 else 0) else v) =
-      G.card + ((2 ^ P.idxBits - P.numSets : ℕ) : ℝ≥0∞) * v := by
-  have hpoint : ∀ r, (if r < P.numSets then (if r ∈ G then (1 : ℝ≥0∞) else 0) else v) =
-      (if r ∈ G then 1 else 0) + (if r < P.numSets then 0 else v) := by
+lemma sum_branch (G : Finset ℕ) (hG : ∀ i ∈ G, i < F.numSets)
+    (hM : F.numSets ≤ 2 ^ F.idxBits) (v : ℝ≥0∞) :
+    (∑ r ∈ Finset.range (2 ^ F.idxBits),
+      if r < F.numSets then (if r ∈ G then 1 else 0) else v) =
+      G.card + ((2 ^ F.idxBits - F.numSets : ℕ) : ℝ≥0∞) * v := by
+  have hpoint : ∀ r, (if r < F.numSets then (if r ∈ G then (1 : ℝ≥0∞) else 0) else v) =
+      (if r ∈ G then 1 else 0) + (if r < F.numSets then 0 else v) := by
     intro r
     by_cases hrG : r ∈ G
     · simp [hrG, hG r hrG]
@@ -90,52 +90,52 @@ lemma sum_branch (G : Finset ℕ) (hG : ∀ i ∈ G, i < P.numSets)
   rw [Finset.sum_add_distrib]
   congr 1
   · rw [← Finset.sum_filter]
-    have hfilter : (Finset.range (2 ^ P.idxBits)).filter (· ∈ G) = G := by
+    have hfilter : (Finset.range (2 ^ F.idxBits)).filter (· ∈ G) = G := by
       ext r
       simp only [Finset.mem_filter, Finset.mem_range]
       exact ⟨fun h => h.2, fun h => ⟨(hG r h).trans_le hM, h⟩⟩
     simp [hfilter]
   · rw [Finset.sum_ite, Finset.sum_const_zero, zero_add, Finset.sum_const, nsmul_eq_mul]
     congr 1
-    have hfilter : (Finset.range (2 ^ P.idxBits)).filter (fun r => ¬ r < P.numSets) =
-        Finset.Ico P.numSets (2 ^ P.idxBits) := by
+    have hfilter : (Finset.range (2 ^ F.idxBits)).filter (fun r => ¬ r < F.numSets) =
+        Finset.Ico F.numSets (2 ^ F.idxBits) := by
       ext r
       simp only [Finset.mem_filter, Finset.mem_range, Finset.mem_Ico]
       omega
     rw [hfilter, Nat.card_Ico]
 
-lemma uniform_branch (G : Finset ℕ) (hG : ∀ i ∈ G, i < P.numSets)
-    (hidx : P.idxBits ≤ P.hashBits) (hM0 : 0 < P.numSets)
-    (hM : P.numSets ≤ 2 ^ P.idxBits) (k : ℕ) :
+lemma uniform_branch (G : Finset ℕ) (hG : ∀ i ∈ G, i < F.numSets)
+    (hidx : F.idxBits ≤ P.hashBits) (hM0 : 0 < F.numSets)
+    (hM : F.numSets ≤ 2 ^ F.idxBits) (k : ℕ) :
     E ($ᵗ BitVec P.hashBits) (fun w =>
-      if idxOf P w < P.numSets then (if idxOf P w ∈ G then 1 else 0)
-      else G.card * ENNReal.ofReal (rate P k)) =
-      G.card * ENNReal.ofReal (rate P (k + 1)) := by
+      if idxOf P F w < F.numSets then (if idxOf P F w ∈ G then 1 else 0)
+      else G.card * ENNReal.ofReal (rate P F k)) =
+      G.card * ENNReal.ofReal (rate P F (k + 1)) := by
   rw [E_uniform, ← Finset.mul_sum, sum_idxOf hidx (fun r =>
-    if r < P.numSets then (if r ∈ G then 1 else 0) else G.card * ENNReal.ofReal (rate P k)),
+    if r < F.numSets then (if r ∈ G then 1 else 0) else G.card * ENNReal.ofReal (rate P F k)),
     sum_branch G hG hM]
   have hH0 : ((2 ^ P.hashBits : ℕ) : ℝ≥0∞) ≠ 0 := by positivity
   have hHt : ((2 ^ P.hashBits : ℕ) : ℝ≥0∞) ≠ ⊤ := ENNReal.natCast_ne_top _
   have hH : ((2 ^ P.hashBits : ℕ) : ℝ≥0∞) =
-      (2 ^ (P.hashBits - P.idxBits) : ℕ) * ((2 ^ P.idxBits : ℕ) : ℝ≥0∞) := by
+      (2 ^ (P.hashBits - F.idxBits) : ℕ) * ((2 ^ F.idxBits : ℕ) : ℝ≥0∞) := by
     norm_cast
     rw [← pow_add, Nat.sub_add_cancel hidx]
   rw [Fintype.card_bitVec, ← ENNReal.mul_right_inj hH0 hHt, ← mul_assoc,
     ENNReal.mul_inv_cancel hH0 hHt, one_mul]
   rw [hH]
-  have hs := rate_succ hM0 hM k
-  calc _ = ((2 ^ (P.hashBits - P.idxBits) : ℕ) : ℝ≥0∞) *
-      (G.card * (1 + ((2 ^ P.idxBits - P.numSets : ℕ) : ℝ≥0∞) * ENNReal.ofReal (rate P k))) := by ring
+  have hs := rate_succ (P := P) hM0 hM k
+  calc _ = ((2 ^ (P.hashBits - F.idxBits) : ℕ) : ℝ≥0∞) *
+      (G.card * (1 + ((2 ^ F.idxBits - F.numSets : ℕ) : ℝ≥0∞) * ENNReal.ofReal (rate P F k))) := by ring
     _ = _ := by rw [← hs]; ring
 
-theorem loop_reward (G : Finset ℕ) (hG : ∀ i ∈ G, i < P.numSets)
-    (hidx : P.idxBits ≤ P.hashBits) (hM0 : 0 < P.numSets)
-    (hM : P.numSets ≤ 2 ^ P.idxBits) (m : Message P) :
-    ∀ (k : ℕ) (tried : Finset (Nonce P)) (c : Cache P),
-      tried.card + k ≤ 2 ^ P.nonceBits →
-      (∀ η ∉ tried, c (encQuery P (m ++ η)) = none) →
-      E (run P (signIdxLoop P m k tried) c) (fun p => reward G p.1) =
-        G.card * ENNReal.ofReal (rate P k) := by
+theorem loop_reward (G : Finset ℕ) (hG : ∀ i ∈ G, i < F.numSets)
+    (hidx : F.idxBits ≤ P.hashBits) (hM0 : 0 < F.numSets)
+    (hM : F.numSets ≤ 2 ^ F.idxBits) (m : Message P) :
+    ∀ (k : ℕ) (tried : Finset (Nonce F)) (c : Cache P),
+      tried.card + k ≤ 2 ^ F.nonceBits →
+      (∀ η ∉ tried, c (encQuery P F (m ++ η)) = none) →
+      E (run P (signIdxLoop P F m k tried) c) (fun p => reward G p.1) =
+        G.card * ENNReal.ofReal (rate P F k) := by
   intro k
   induction k with
   | zero =>
@@ -146,23 +146,23 @@ theorem loop_reward (G : Finset ℕ) (hG : ∀ i ∈ G, i < P.numSets)
     have hc : 0 < (Finset.univ \ tried).card := by
       rw [Finset.card_univ_sdiff, Fintype.card_bitVec]
       omega
-    rw [signIdxLoop_succ P m k tried hc, run_query_bind, oracleImpl_run_inl]
+    rw [signIdxLoop_succ P F m k tried hc, run_query_bind, oracleImpl_run_inl]
     simp only [bind_assoc, pure_bind, E_bind]
-    have hbody : ∀ j, E (run P (loopBody P m k tried (nonceOf P tried hc j)) c)
-        (fun p => reward G p.1) = G.card * ENNReal.ofReal (rate P (k + 1)) := by
+    have hbody : ∀ j, E (run P (loopBody P F m k tried (nonceOf F tried hc j)) c)
+        (fun p => reward G p.1) = G.card * ENNReal.ofReal (rate P F (k + 1)) := by
       intro j
-      let η := nonceOf P tried hc j
-      have hη : η ∉ tried := (Finset.mem_sdiff.mp (nonceOf_mem P tried hc j)).2
+      let η := nonceOf F tried hc j
+      have hη : η ∉ tried := (Finset.mem_sdiff.mp (nonceOf_mem F tried hc j)).2
       rw [loopBody, run_query_bind, oracleImpl_run_inr_none P (hfresh η hη)]
       simp only [bind_assoc, pure_bind, E_bind]
       have hkont : ∀ w : BitVec P.hashBits,
-          E (run P (afterHash P m k tried η w)
-            (c.cacheQuery (encQuery P (m ++ η)) w)) (fun p => reward G p.1) =
-          if idxOf P w < P.numSets then (if idxOf P w ∈ G then 1 else 0)
-          else G.card * ENNReal.ofReal (rate P k) := by
+          E (run P (afterHash P F m k tried η w)
+            (c.cacheQuery (encQuery P F (m ++ η)) w)) (fun p => reward G p.1) =
+          if idxOf P F w < F.numSets then (if idxOf P F w ∈ G then 1 else 0)
+          else G.card * ENNReal.ofReal (rate P F k) := by
         intro w
         unfold afterHash
-        by_cases hw : idxOf P w < P.numSets
+        by_cases hw : idxOf P F w < F.numSets
         · rw [dif_pos hw, if_pos hw, run_pure, E_pure]
           rfl
         · rw [dif_neg hw, if_neg hw]
@@ -170,15 +170,15 @@ theorem loop_reward (G : Finset ℕ) (hG : ∀ i ∈ G, i < P.numSets)
           · rw [Finset.card_insert_of_notMem hη]
             omega
           · intro η' hη'
-            have hne : encQuery P (m ++ η') ≠ encQuery P (m ++ η) := by
+            have hne : encQuery P F (m ++ η') ≠ encQuery P F (m ++ η) := by
               intro heq
-              have he := append_nonce_inj P m (encQuery_inj P heq)
+              have he := append_nonce_inj P F m (encQuery_inj P F heq)
               exact hη' (he ▸ Finset.mem_insert_self η tried)
             rw [QueryCache.cacheQuery_of_ne _ _ hne]
             exact hfresh η' (fun h => hη' (Finset.mem_insert_of_mem h))
       calc _ = E ($ᵗ BitVec P.hashBits) (fun w =>
-          if idxOf P w < P.numSets then (if idxOf P w ∈ G then 1 else 0)
-          else G.card * ENNReal.ofReal (rate P k)) := by
+          if idxOf P F w < F.numSets then (if idxOf P F w ∈ G then 1 else 0)
+          else G.card * ENNReal.ofReal (rate P F k)) := by
             congr 1
             funext w
             exact hkont w
@@ -208,18 +208,18 @@ lemma one_sub_pow_le_reciprocal {p : ℝ} (hp : 0 ≤ p) (hp1 : p ≤ 1) (k : �
 /-- The signer selects a good index with probability at least one half, if at least three
 quarters of the indices are good and every nonce query for the message starts fresh. -/
 theorem paper_reward_ge_half (G : Finset ℕ)
-    (hG : ∀ i ∈ G, i < paperParams.numSets)
-    (hGcard : 3 * paperParams.numSets ≤ 4 * G.card)
+    (hG : ∀ i ∈ G, i < paperDagFormat.numSets)
+    (hGcard : 3 * paperDagFormat.numSets ≤ 4 * G.card)
     (m : Message paperParams) (c : Cache paperParams)
-    (hfresh : ∀ η : Nonce paperParams, c (encQuery paperParams (m ++ η)) = none) :
+    (hfresh : ∀ η : Nonce paperDagFormat, c (encQuery paperParams paperDagFormat (m ++ η)) = none) :
     (1 / 2 : ℝ≥0∞) ≤
-      E (run paperParams (signIdx paperParams m) c) (fun p => reward G p.1) := by
-  rw [signIdx, loop_reward G hG (by decide) (by norm_num [paperParams])
-    (by norm_num [paperParams]) m _ ∅ c (by norm_num [paperParams]) (by simpa using hfresh)]
+      E (run paperParams (signIdx paperParams paperDagFormat m) c) (fun p => reward G p.1) := by
+  rw [signIdx, loop_reward G hG (by decide) (by norm_num [paperDagFormat])
+    (by norm_num [paperDagFormat]) m _ ∅ c (by norm_num [paperDagFormat]) (by simpa using hfresh)]
   have hfail := one_sub_pow_le_reciprocal (p := (1 : ℝ) / 8192)
     (by norm_num) (by norm_num) (2 ^ 20)
   norm_num only [Nat.cast_pow, Nat.cast_ofNat] at hfail
-  have hrate : (128 : ℝ) / (129 * (2 : ℝ) ^ 115) ≤ rate paperParams paperParams.trialLimit := by
+  have hrate : (128 : ℝ) / (129 * (2 : ℝ) ^ 115) ≤ rate paperParams paperDagFormat paperDagFormat.trialLimit := by
     unfold rate
     change _ ≤ (1 - (1 - ((2 ^ 115 : ℕ) : ℝ) / 2 ^ 128) ^ (2 ^ 20)) /
       ((2 ^ 115 : ℕ) : ℝ)
@@ -231,7 +231,7 @@ theorem paper_reward_ge_half (G : Finset ℕ)
   have hcard : (3 : ℝ) * 2 ^ 115 ≤ 4 * (G.card : ℝ) := by
     exact_mod_cast hGcard
   have hmul := mul_le_mul_of_nonneg_left hrate (Nat.cast_nonneg G.card)
-  have hlower : (1 / 2 : ℝ) ≤ (G.card : ℝ) * rate paperParams paperParams.trialLimit := by
+  have hlower : (1 / 2 : ℝ) ≤ (G.card : ℝ) * rate paperParams paperDagFormat paperDagFormat.trialLimit := by
     have hn : (0 : ℝ) < 2 ^ 115 := by positivity
     have hgc : (3 * (2 : ℝ) ^ 115) / 4 ≤ G.card := by linarith
     have hnum := mul_le_mul_of_nonneg_right hgc

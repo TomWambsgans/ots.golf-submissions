@@ -55,7 +55,7 @@ theorem cost_eq_length (seg : Segment) (nodes : List Name)
   congr 1
   exact List.map_congr_left h
 
-variable (index : Idx paperParams) (payload : List Bool) (pk : PublicKey paperParams)
+variable (index : Idx paperDagFormat) (payload : List Bool) (pk : PublicKey paperParams)
 
 /-- The cycles of chains `k` and later: `13 + 3 (14 - p)` for each active chain. -/
 def costFrom (k : ℕ) : ℕ :=
