@@ -1,20 +1,25 @@
-import Submissions.UpperCompressions.ForestAlgorithm
+import Submissions.UpperCompressions.Wire
 
-/-! A fully admissible generic oracle algorithm with verification cost at most 106. -/
+/-! A fully admissible oracle algorithm with verification cost at most 106. -/
 
 namespace OptimalOTS.Challenge.UpperCompressions
 
-/-- The forest's unchanged key-generation, signing, and verification programs. -/
-noncomputable def scheme : AlgorithmScheme paperParams := GenericUpperForest.scheme
+/-- The forest's key-generation, signing, and verification programs on bit strings. -/
+noncomputable def scheme : OracleAlgorithm.Scheme := GenericUpperForest.Wire.scheme
 
-/-- Perfect correctness, signing failure at most `2⁻¹²⁸`, and the paper's resource limits. -/
-theorem admissible :
-    scheme.Admissible (1 / 2 ^ 128) := GenericUpperForest.admissible
+/-- Perfect correctness, bounded signing failure, and the competition's resource limits. -/
+theorem admissible : scheme.Admissible := GenericUpperForest.Wire.admissible
 
 /-- 127-bit strong unforgeability in the shared random-oracle experiment. -/
-theorem secure : scheme.Secure := GenericUpperForest.secure
+theorem secure : scheme.Secure := GenericUpperForest.Wire.secure
 
 /-- A bound for every input and every oracle-answer path, including rejecting inputs. -/
-theorem cost : scheme.VerifyCostAtMost 106 := GenericUpperForest.cost
+theorem cost : scheme.VerifyCostAtMost 106 := GenericUpperForest.Wire.cost
 
 end OptimalOTS.Challenge.UpperCompressions
+
+/--
+info: 'OptimalOTS.Challenge.UpperCompressions.cost' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms OptimalOTS.Challenge.UpperCompressions.cost

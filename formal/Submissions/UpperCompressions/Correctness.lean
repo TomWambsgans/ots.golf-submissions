@@ -15,11 +15,15 @@ open scoped Classical
 
 namespace OptimalOTS.GenericCorrectness
 
-variable {P : Params} {F : DagFormat}
+open OptimalOTS.Dag
+
+
+attribute [local irreducible] hashBits blockBits pkBits msgBits securityBits maxSignatureBits keygenBudget signBudget nonceBits idxBits numCuts trials
+
 
 /-- A reconstruction satisfying the cached equations agrees with the original on visited nodes. -/
-theorem reconstruct_eq (G : Graph P) (A : Finset (Fin G.size)) (x y : G.Assignment)
-    (c : Cache P) (hc : G.CacheConsistent x c)
+theorem reconstruct_eq (G : Graph) (A : Finset (Fin G.size)) (x y : G.Assignment)
+    (c : Cache) (hc : G.CacheConsistent x c)
     (hsrc : ∀ v, G.Visited A v → v ∉ A → ¬ (G.kind v).IsSource)
     (hy : G.ReconEqs c A (G.decode A (G.encode A x)) y)
     (v : Fin G.size) (hv : G.Visited A v) : y v = x v := by
@@ -47,13 +51,13 @@ theorem reconstruct_eq (G : Graph P) (A : Finset (Fin G.size)) (x y : G.Assignme
         simp
 
 /-- Successful signing records its selected index and returns that cut's complete encoding. -/
-theorem sign_result (S : Scheme P F) (x : S.graph.Assignment) (m : Message P)
-    (σ : Signature F) (c d : Cache P)
-    (h : (some σ, d) ∈ support (run P (S.sign x m) c)) :
-    ∃ i : Fin F.numSets, ∃ w : BitVec P.hashBits,
+theorem sign_result (S : Scheme) (x : S.graph.Assignment) (m : Message)
+    (σ : Signature) (c d : Cache)
+    (h : (some σ, d) ∈ support (run (S.sign x m) c)) :
+    ∃ i : Fin numCuts, ∃ w : BitVec hashBits,
       σ.2 = S.graph.encode (S.sets i) x ∧
-      d ⟨P.msgBits + F.nonceBits, m ++ σ.1⟩ = some w ∧
-      (w.setWidth F.idxBits).toNat = i.val := by
+      d ⟨msgBits + nonceBits, m ++ σ.1⟩ = some w ∧
+      (w.setWidth idxBits).toNat = i.val := by
   rw [sign_eq_map, run_map, support_map, Set.mem_image] at h
   obtain ⟨⟨r, d'⟩, hr, he⟩ := h
   cases r with
@@ -62,18 +66,18 @@ theorem sign_result (S : Scheme P F) (x : S.graph.Assignment) (m : Message P)
     obtain ⟨η, i⟩ := r
     simp only [Option.map_some, Prod.mk.injEq, Option.some.injEq] at he
     rcases he with ⟨he, rfl⟩
-    obtain ⟨w, hw, hi⟩ := (signIdx_support P F m c _ hr).2.2 η i rfl
+    obtain ⟨w, hw, hi⟩ := (signIdx_support m c _ hr).2.2 η i rfl
     cases he
     exact ⟨i, w, rfl, hw, hi⟩
 
 /-- A signature from a consistent assignment verifies under any extension of its signing cache. -/
-theorem verify_accepts (S : Scheme P F) (x : S.graph.Assignment) (m : Message P)
-    (σ : Signature F) (c : Cache P) (hc : S.graph.CacheConsistent x c)
-    (i : Fin F.numSets) (w : BitVec P.hashBits)
+theorem verify_accepts (S : Scheme) (x : S.graph.Assignment) (m : Message)
+    (σ : Signature) (c : Cache) (hc : S.graph.CacheConsistent x c)
+    (i : Fin numCuts) (w : BitVec hashBits)
     (hσ : σ.2 = S.graph.encode (S.sets i) x)
-    (hw : c ⟨P.msgBits + F.nonceBits, m ++ σ.1⟩ = some w)
-    (hi : (w.setWidth F.idxBits).toNat = i.val) :
-    ∀ p ∈ support (run P (S.verify (S.publicKey x) m σ) c), p.1 = true := by
+    (hw : c ⟨msgBits + nonceBits, m ++ σ.1⟩ = some w)
+    (hi : (w.setWidth idxBits).toNat = i.val) :
+    ∀ p ∈ support (run (S.verify (S.publicKey x) m σ) c), p.1 = true := by
   intro p hp
   unfold Scheme.verify at hp
   rw [run_bind, support_bind] at hp
@@ -101,13 +105,13 @@ theorem verify_accepts (S : Scheme P F) (x : S.graph.Assignment) (m : Message P)
 
 /-- Every DAG scheme's generic adapter is perfectly correct, including for messages selected
 as an arbitrary function of the public key. Signing failure is handled by the availability bound. -/
-theorem correct (S : Scheme P F) : S.toAlgorithm.Correct := by
+theorem correct (S : Scheme) : S.toAlgorithm.Correct := by
   intro message
   dsimp only [Scheme.toAlgorithm]
   unfold probTrue
   rw [StateT.run'_eq, probOutput_eq_zero_iff, support_map]
   rintro ⟨⟨b, e⟩, h, hb⟩
-  change (b, e) ∈ support (run P _ ∅) at h
+  change (b, e) ∈ support (run _ ∅) at h
   rw [run_bind, support_bind] at h
   simp only [Set.mem_iUnion] at h
   obtain ⟨⟨⟨pk, sk⟩, c⟩, hk, h⟩ := h
@@ -124,7 +128,7 @@ theorem correct (S : Scheme P F) : S.toAlgorithm.Correct := by
     cases h.1.symm.trans hb
   | some σ =>
     obtain ⟨i, w, hσ, hw, hi⟩ := sign_result S sk (message (S.publicKey sk)) σ c d hs
-    have hcd := sub_of_mem_support_run P (S.sign sk (message (S.publicKey sk))) c _ hs
+    have hcd := sub_of_mem_support_run (S.sign sk (message (S.publicKey sk))) c _ hs
     have hdc := Graph.CacheConsistent.mono S.graph hcd hkc
     rw [run_bind, support_bind] at h
     simp only [Set.mem_iUnion] at h

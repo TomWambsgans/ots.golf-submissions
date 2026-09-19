@@ -10,15 +10,20 @@ open scoped Classical
 
 namespace OptimalOTS
 
+open OptimalOTS.Dag
+
+
 namespace Deterministic
 
-variable {P : Params} {F : DagFormat} {α β : Type}
+attribute [local irreducible] hashBits blockBits pkBits msgBits securityBits maxSignatureBits keygenBudget signBudget nonceBits idxBits numCuts trials
 
-theorem of_pure (x : α) : Deterministic P (pure x : OracleComp (Spec P) α) := trivial
+variable {α β : Type}
 
-theorem bind {oa : OracleComp (Spec P) α} {ob : α → OracleComp (Spec P) β}
-    (h₁ : Deterministic P oa) (h₂ : ∀ x, Deterministic P (ob x)) :
-    Deterministic P (oa >>= ob) := by
+theorem of_pure (x : α) : Deterministic (pure x : OracleComp Spec α) := trivial
+
+theorem bind {oa : OracleComp Spec α} {ob : α → OracleComp Spec β}
+    (h₁ : Deterministic oa) (h₂ : ∀ x, Deterministic (ob x)) :
+    Deterministic (oa >>= ob) := by
   induction oa using OracleComp.inductionOn with
   | pure x => simpa using h₂ x
   | query_bind t mx ih =>
@@ -27,18 +32,18 @@ theorem bind {oa : OracleComp (Spec P) α} {ob : α → OracleComp (Spec P) β}
     rw [bind_assoc, isQueryBound_query_bind_iff]
     exact ⟨h₁.1, fun u => ih u (h₁.2 u)⟩
 
-theorem map {oa : OracleComp (Spec P) α} (h : Deterministic P oa) (f : α → β) :
-    Deterministic P (f <$> oa) :=
+theorem map {oa : OracleComp Spec α} (h : Deterministic oa) (f : α → β) :
+    Deterministic (f <$> oa) :=
   (isQueryBound_map_iff oa f _ _ _).2 h
 
-theorem hash {k : ℕ} (u : BitVec k) : Deterministic P (OptimalOTS.hash P u) := by
+theorem hash {k : ℕ} (u : BitVec k) : Deterministic (OptimalOTS.hash u) := by
   unfold Deterministic OptimalOTS.hash
   rw [isQueryBound_query_iff]
   rfl
 
-theorem foldlM {γ δ : Type} (f : γ → δ → OracleComp (Spec P) γ)
-    (hf : ∀ x a, Deterministic P (f x a)) :
-    ∀ (l : List δ) (init : γ), Deterministic P (l.foldlM f init)
+theorem foldlM {γ δ : Type} (f : γ → δ → OracleComp Spec γ)
+    (hf : ∀ x a, Deterministic (f x a)) :
+    ∀ (l : List δ) (init : γ), Deterministic (l.foldlM f init)
   | [], _ => Deterministic.of_pure _
   | a :: l, init => by
       rw [List.foldlM_cons]
@@ -46,13 +51,15 @@ theorem foldlM {γ δ : Type} (f : γ → δ → OracleComp (Spec P) γ)
 
 end Deterministic
 
-namespace Graph
+namespace Dag.Graph
 
-variable {P : Params} {F : DagFormat} (G : Graph P)
+attribute [local irreducible] hashBits blockBits pkBits msgBits securityBits maxSignatureBits keygenBudget signBudget nonceBits idxBits numCuts trials
+
+variable (G : Graph)
 
 theorem deterministic_evalNode (x : G.Assignment) (v : Fin G.size)
-    (s : OracleComp (Spec P) (BitVec (G.len v))) (hs : Deterministic P s) :
-    Deterministic P (G.evalNode x v s) := by
+    (s : OracleComp Spec (BitVec (G.len v))) (hs : Deterministic s) :
+    Deterministic (G.evalNode x v s) := by
   unfold Graph.evalNode
   cases G.kind v with
   | source => exact hs
@@ -60,7 +67,7 @@ theorem deterministic_evalNode (x : G.Assignment) (v : Fin G.size)
   | hash p _ h => exact Deterministic.map (Deterministic.hash _) _
 
 theorem deterministic_reconstruct (A : Finset (Fin G.size)) (given : G.Assignment) :
-    Deterministic P (G.reconstruct A given) := by
+    Deterministic (G.reconstruct A given) := by
   unfold Graph.reconstruct
   refine Deterministic.foldlM _ (fun x v => ?_) (List.finRange G.size) (fun _ => 0)
   split_ifs
@@ -68,14 +75,16 @@ theorem deterministic_reconstruct (A : Finset (Fin G.size)) (given : G.Assignmen
   · exact Deterministic.map (G.deterministic_evalNode x v _ (Deterministic.of_pure _)) _
   · exact Deterministic.of_pure _
 
-end Graph
+end Dag.Graph
 
-namespace Scheme
+namespace Dag.Scheme
 
-variable {P : Params} {F : DagFormat} (S : Scheme P F)
+attribute [local irreducible] hashBits blockBits pkBits msgBits securityBits maxSignatureBits keygenBudget signBudget nonceBits idxBits numCuts trials
 
-theorem deterministic_verify (pk : PublicKey P) (m : Message P) (σ : Signature F) :
-    Deterministic P (S.verify pk m σ) := by
+variable (S : Scheme)
+
+theorem deterministic_verify (pk : PublicKey) (m : Message) (σ : Signature) :
+    Deterministic (S.verify pk m σ) := by
   unfold Scheme.verify index
   refine Deterministic.bind (Deterministic.map (Deterministic.hash _) _) fun i => ?_
   split_ifs
@@ -90,6 +99,6 @@ theorem deterministic_verify (pk : PublicKey P) (m : Message P) (σ : Signature 
 theorem verifyDeterministic : S.toAlgorithm.VerifyDeterministic :=
   fun pk m σ => S.deterministic_verify pk m σ
 
-end Scheme
+end Dag.Scheme
 
 end OptimalOTS

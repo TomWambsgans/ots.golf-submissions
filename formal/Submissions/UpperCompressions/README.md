@@ -24,13 +24,15 @@ The 63-chain forest of Section 7 of the paper, wrapped as a generic oracle algor
 
 | File | Content |
 |---|---|
-| `Adapter.lean` | a DAG scheme as a generic oracle algorithm; injective serialization; equal security experiments |
+| `TypedScheme.lean` | internal interface: oracle algorithms with a typed signature and an injective encoding |
+| `Adapter.lean` | a DAG scheme as a `TypedScheme`; equal security experiments |
 | `AlgorithmCosts.lean`, `Resources.lean` | pathwise costs, wire size and rejection of oversized signatures |
 | `KeygenSupport.lean`, `Correctness.lean` | cache consistency and perfect correctness of the adapter |
 | `Deterministic.lean` | verification makes only hash queries |
 | `Availability.lean` | fresh index queries and the repeated-failure bound |
 | `Main.lean` and the modules it imports | the forest and its strong-security proof (`Pr[forge] ≤ (B - 912) / 2^127`) |
 | `ForestAlgorithm.lean` | admissibility, security and cost of the wrapped scheme |
+| `WireAdapter.lean`, `Wire.lean` | the certificate transferred to the contract's `OracleAlgorithm.Scheme` on bit strings (nonce bits, then disclosed values) |
 | `Solution.lean` | the exported declarations |
 
 The security proof's architecture is described in

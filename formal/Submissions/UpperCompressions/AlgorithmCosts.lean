@@ -10,16 +10,21 @@ noncomputable section
 open scoped Classical
 
 namespace OptimalOTS
+
+open OptimalOTS.Dag
+
 namespace AlgorithmCosts
 
 /-! ## Generic rules for `CostAtMost` -/
 
 section Generic
 
-variable {P : Params} {F : DagFormat} {α β : Type}
+attribute [local irreducible] hashBits blockBits pkBits msgBits securityBits maxSignatureBits keygenBudget signBudget nonceBits idxBits numCuts trials
 
-theorem CostAtMost.mono {oa : OracleComp (Spec P) α} {b b' : ℕ} (h : CostAtMost P oa b)
-    (hb : b ≤ b') : CostAtMost P oa b' := by
+variable {α β : Type}
+
+theorem CostAtMost.mono {oa : OracleComp Spec α} {b b' : ℕ} (h : CostAtMost oa b)
+    (hb : b ≤ b') : CostAtMost oa b' := by
   induction oa using OracleComp.inductionOn generalizing b b' with
   | pure _ => trivial
   | query_bind t mx ih =>
@@ -27,53 +32,53 @@ theorem CostAtMost.mono {oa : OracleComp (Spec P) α} {b b' : ℕ} (h : CostAtMo
       rw [isQueryBound_query_bind_iff] at h ⊢
       exact ⟨le_trans h.1 hb, fun u => ih u (h.2 u) (by omega)⟩
 
-theorem costAtMost_pure (x : α) (b : ℕ) : CostAtMost P (pure x : OracleComp (Spec P) α) b :=
+theorem costAtMost_pure (x : α) (b : ℕ) : CostAtMost (pure x : OracleComp Spec α) b :=
   trivial
 
-theorem CostAtMost.bind {oa : OracleComp (Spec P) α} {ob : α → OracleComp (Spec P) β}
-    {b₁ b₂ : ℕ} (h₁ : CostAtMost P oa b₁) (h₂ : ∀ x, CostAtMost P (ob x) b₂) :
-    CostAtMost P (oa >>= ob) (b₁ + b₂) :=
+theorem CostAtMost.bind {oa : OracleComp Spec α} {ob : α → OracleComp Spec β}
+    {b₁ b₂ : ℕ} (h₁ : CostAtMost oa b₁) (h₂ : ∀ x, CostAtMost (ob x) b₂) :
+    CostAtMost (oa >>= ob) (b₁ + b₂) :=
   isQueryBound_bind (· + ·)
     (fun _ _ _ _ h => ⟨le_add_left h, le_add_right h⟩)
     (fun _ _ _ _ h => ⟨by omega, by omega⟩) h₁ h₂
 
-theorem costAtMost_map_iff (oa : OracleComp (Spec P) α) (f : α → β) (b : ℕ) :
-    CostAtMost P (f <$> oa) b ↔ CostAtMost P oa b :=
+theorem costAtMost_map_iff (oa : OracleComp Spec α) (f : α → β) (b : ℕ) :
+    CostAtMost (f <$> oa) b ↔ CostAtMost oa b :=
   isQueryBound_map_iff _ _ _ _ _
 
-theorem CostAtMost.map {oa : OracleComp (Spec P) α} {b : ℕ} (h : CostAtMost P oa b)
-    (f : α → β) : CostAtMost P (f <$> oa) b :=
+theorem CostAtMost.map {oa : OracleComp Spec α} {b : ℕ} (h : CostAtMost oa b)
+    (f : α → β) : CostAtMost (f <$> oa) b :=
   (costAtMost_map_iff oa f b).2 h
 
 theorem costAtMost_liftM_probComp (mx : ProbComp α) (b : ℕ) :
-    CostAtMost P (liftM mx : OracleComp (Spec P) α) b := by
-  change CostAtMost P (liftComp mx (Spec P)) b
+    CostAtMost (liftM mx : OracleComp Spec α) b := by
+  change CostAtMost (liftComp mx Spec) b
   induction mx using OracleComp.inductionOn with
   | pure _ => trivial
   | query_bind t mx ih =>
       rw [liftComp_bind]
-      have hq : liftComp (liftM (OracleSpec.query t) : ProbComp _) (Spec P) =
-          (liftM ((Spec P).query (.inl t)) : OracleComp (Spec P) _) := by
+      have hq : liftComp (liftM (OracleSpec.query t) : ProbComp _) Spec =
+          (liftM (Spec.query (.inl t)) : OracleComp Spec _) := by
         simp [liftComp]; rfl
       rw [hq]
       unfold CostAtMost at ih ⊢
       rw [isQueryBound_query_bind_iff]
       exact ⟨by simp [queryCost], fun u => by simpa [queryCost] using ih u⟩
 
-theorem costAtMost_hash {k : ℕ} (u : BitVec k) {b : ℕ} (hb : blockCost P k ≤ b) :
-    CostAtMost P (hash P u) b := by
+theorem costAtMost_hash {k : ℕ} (u : BitVec k) {b : ℕ} (hb : blockCost k ≤ b) :
+    CostAtMost (hash u) b := by
   unfold CostAtMost hash
   rw [isQueryBound_query_iff]
   exact hb
 
-theorem CostAtMost.bind_le {oa : OracleComp (Spec P) α} {ob : α → OracleComp (Spec P) β}
-    {b₁ b₂ b : ℕ} (h₁ : CostAtMost P oa b₁) (h₂ : ∀ x, CostAtMost P (ob x) b₂)
-    (h : b₁ + b₂ ≤ b) : CostAtMost P (oa >>= ob) b :=
+theorem CostAtMost.bind_le {oa : OracleComp Spec α} {ob : α → OracleComp Spec β}
+    {b₁ b₂ b : ℕ} (h₁ : CostAtMost oa b₁) (h₂ : ∀ x, CostAtMost (ob x) b₂)
+    (h : b₁ + b₂ ≤ b) : CostAtMost (oa >>= ob) b :=
   CostAtMost.mono (CostAtMost.bind h₁ h₂) h
 
-theorem costAtMost_foldlM {γ δ : Type} (f : γ → δ → OracleComp (Spec P) γ) (c : δ → ℕ)
-    (hf : ∀ x a, CostAtMost P (f x a) (c a)) :
-    ∀ (l : List δ) (init : γ), CostAtMost P (l.foldlM f init) (l.map c).sum
+theorem costAtMost_foldlM {γ δ : Type} (f : γ → δ → OracleComp Spec γ) (c : δ → ℕ)
+    (hf : ∀ x a, CostAtMost (f x a) (c a)) :
+    ∀ (l : List δ) (init : γ), CostAtMost (l.foldlM f init) (l.map c).sum
   | [], _ => costAtMost_pure _ _
   | a :: l, init => by
       rw [List.foldlM_cons, List.map_cons, List.sum_cons]
@@ -83,27 +88,29 @@ end Generic
 
 /-! ## Graph computations -/
 
-namespace Graph
+namespace Dag.Graph
 
-variable {P : Params} {F : DagFormat} (G : Graph P)
+attribute [local irreducible] hashBits blockBits pkBits msgBits securityBits maxSignatureBits keygenBudget signBudget nonceBits idxBits numCuts trials
+
+variable (G : Graph)
 
 theorem costAtMost_evalNode (x : G.Assignment) (v : Fin G.size)
-    (s : OracleComp (Spec P) (BitVec (G.len v))) (hs : CostAtMost P s 0) :
-    CostAtMost P (G.evalNode x v s) (G.nodeCost v) := by
+    (s : OracleComp Spec (BitVec (G.len v))) (hs : CostAtMost s 0) :
+    CostAtMost (G.evalNode x v s) (G.nodeCost v) := by
   unfold Graph.evalNode Graph.nodeCost
   cases G.kind v with
   | source => exact hs
   | det => exact costAtMost_pure _ _
   | hash p _ h => exact CostAtMost.map (costAtMost_hash _ le_rfl) _
 
-theorem costAtMost_sampleAssignment : CostAtMost P G.sampleAssignment 0 := by
+theorem costAtMost_sampleAssignment : CostAtMost G.sampleAssignment 0 := by
   unfold Graph.sampleAssignment
   have := costAtMost_foldlM
-    (fun (z : G.Assignment) v => Function.update z v <$> sampleBits P (G.len v)) (fun _ => 0)
+    (fun (z : G.Assignment) v => Function.update z v <$> sampleBits (G.len v)) (fun _ => 0)
     (fun _ _ => CostAtMost.map (costAtMost_liftM_probComp _ _) _) (List.finRange G.size) (fun _ => 0)
   simpa using this
 
-theorem costAtMost_evaluate (z : G.Assignment) : CostAtMost P (G.evaluate z) G.keygenCost := by
+theorem costAtMost_evaluate (z : G.Assignment) : CostAtMost (G.evaluate z) G.keygenCost := by
   unfold Graph.evaluate
   have := costAtMost_foldlM
     (fun (x : G.Assignment) v => Function.update x v <$> G.evalNode x v (pure (z v)))
@@ -111,11 +118,11 @@ theorem costAtMost_evaluate (z : G.Assignment) : CostAtMost P (G.evaluate z) G.k
     (List.finRange G.size) (fun _ => 0)
   rwa [Graph.keygenCost, Fin.sum_univ_def]
 
-theorem costAtMost_keygen : CostAtMost P G.keygen G.keygenCost :=
+theorem costAtMost_keygen : CostAtMost G.keygen G.keygenCost :=
   CostAtMost.bind_le (costAtMost_sampleAssignment G) (fun z => costAtMost_evaluate G z) (by simp)
 
 theorem costAtMost_reconstruct (A : Finset (Fin G.size)) (given : G.Assignment) :
-    CostAtMost P (G.reconstruct A given) (G.reconstructCost A) := by
+    CostAtMost (G.reconstruct A given) (G.reconstructCost A) := by
   unfold Graph.reconstruct
   refine CostAtMost.mono (costAtMost_foldlM _
     (fun v => if v ∈ A then 0 else if G.Visited A v then G.nodeCost v else 0)
@@ -128,25 +135,27 @@ theorem costAtMost_reconstruct (A : Finset (Fin G.size)) (given : G.Assignment) 
     refine Finset.sum_congr rfl fun v _ => ?_
     by_cases h₁ : v ∈ A <;> by_cases h₂ : G.Visited A v <;> simp [h₁, h₂]
 
-end Graph
+end Dag.Graph
 
 /-! ## Signing and verification -/
 
-theorem costAtMost_index {P : Params} {F : DagFormat} (hidx : blockCost P (P.msgBits + F.nonceBits) = 1)
-    (m : Message P) (η : Nonce F) : CostAtMost P (index P F m η) 1 :=
+attribute [local irreducible] hashBits blockBits pkBits msgBits securityBits maxSignatureBits keygenBudget signBudget nonceBits idxBits numCuts trials
+
+theorem costAtMost_index (hidx : blockCost (msgBits + nonceBits) = 1)
+    (m : Message) (η : Nonce) : CostAtMost (index m η) 1 :=
   CostAtMost.map (costAtMost_hash _ hidx.le) _
 
-namespace Scheme
+namespace Dag.Scheme
 
-variable {P : Params} {F : DagFormat} (S : Scheme P F)
+variable (S : Scheme)
 
-theorem costAtMost_keygen : CostAtMost P S.keygen P.keygenCost :=
+theorem costAtMost_keygen : CostAtMost S.keygen keygenBudget :=
   CostAtMost.mono (CostAtMost.bind_le (Graph.costAtMost_keygen S.graph)
     (fun _ => costAtMost_pure _ 0) (by simp)) S.keygen_le
 
-theorem costAtMost_signLoop (hidx : blockCost P (P.msgBits + F.nonceBits) = 1)
-    (x : S.graph.Assignment) (m : Message P) :
-    ∀ k tried, CostAtMost P (S.signLoop x m k tried) k
+theorem costAtMost_signLoop (hidx : blockCost (msgBits + nonceBits) = 1)
+    (x : S.graph.Assignment) (m : Message) :
+    ∀ k tried, CostAtMost (S.signLoop x m k tried) k
   | 0, _ => costAtMost_pure _ _
   | k + 1, tried => by
       rw [Scheme.signLoop]
@@ -158,13 +167,13 @@ theorem costAtMost_signLoop (hidx : blockCost P (P.msgBits + F.nonceBits) = 1)
         · exact costAtMost_signLoop hidx x m k _
       · exact costAtMost_pure _ _
 
-theorem costAtMost_sign (hidx : blockCost P (P.msgBits + F.nonceBits) = 1)
-    (x : S.graph.Assignment) (m : Message P) : CostAtMost P (S.sign x m) F.trialLimit :=
+theorem costAtMost_sign (hidx : blockCost (msgBits + nonceBits) = 1)
+    (x : S.graph.Assignment) (m : Message) : CostAtMost (S.sign x m) trials :=
   costAtMost_signLoop S hidx x m _ _
 
-theorem costAtMost_verify (hidx : blockCost P (P.msgBits + F.nonceBits) = 1) {v : ℕ}
-    (hv : ∀ i, S.graph.reconstructCost (S.sets i) ≤ v) (pk : PublicKey P) (m : Message P)
-    (σ : Signature F) : CostAtMost P (S.verify pk m σ) (1 + v) := by
+theorem costAtMost_verify (hidx : blockCost (msgBits + nonceBits) = 1) {v : ℕ}
+    (hv : ∀ i, S.graph.reconstructCost (S.sets i) ≤ v) (pk : PublicKey) (m : Message)
+    (σ : Signature) : CostAtMost (S.verify pk m σ) (1 + v) := by
   unfold Scheme.verify
   refine CostAtMost.bind_le (costAtMost_index hidx _ _) (b₂ := v) (fun i => ?_) le_rfl
   split_ifs with hi
@@ -176,7 +185,7 @@ theorem costAtMost_verify (hidx : blockCost P (P.msgBits + F.nonceBits) = 1) {v 
     · exact costAtMost_pure _ _
   · exact costAtMost_pure _ _
 
-end Scheme
+end Dag.Scheme
 
 end AlgorithmCosts
 end OptimalOTS

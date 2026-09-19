@@ -17,13 +17,16 @@ open scoped Classical
 
 namespace OptimalOTS.GenericUpperForest
 
+open OptimalOTS.Dag
+
+
 attribute [local irreducible] Forest.forestScheme
 attribute [local irreducible] Scheme.sign Scheme.signLoop
-attribute [local irreducible] AlgorithmScheme.Secure AlgorithmScheme.VerifyCostAtMost
-  AlgorithmScheme.KeygenCostAtMost AlgorithmScheme.SignCostAtMost
-  AlgorithmScheme.SignatureSizeAtMost AlgorithmScheme.RejectsOversized
+attribute [local irreducible] TypedScheme.Secure TypedScheme.VerifyCostAtMost
+  TypedScheme.KeygenCostAtMost TypedScheme.SignCostAtMost
+  TypedScheme.SignatureSizeAtMost TypedScheme.RejectsOversized
 
-def scheme : AlgorithmScheme paperParams := Forest.forestScheme.toAlgorithm
+def scheme : TypedScheme := Forest.forestScheme.toAlgorithm
 
 theorem secure : scheme.Secure :=
   (AlgorithmAdapter.secure_iff Forest.forestScheme).2 Forest.forestScheme_secure
@@ -36,16 +39,16 @@ theorem cost : scheme.VerifyCostAtMost 106 := by
   change 1 + Forest.forestScheme.graph.reconstructCost (Forest.forestScheme.sets i) = 106 at h
   omega
 
-theorem keygen_cost : scheme.KeygenCostAtMost paperParams.keygenCost :=
+theorem keygen_cost : scheme.KeygenCostAtMost keygenBudget :=
   AlgorithmAdapter.keygenCost Forest.forestScheme
 
-theorem sign_cost : scheme.SignCostAtMost paperParams.signCost :=
+theorem sign_cost : scheme.SignCostAtMost signBudget :=
   AlgorithmAdapter.signCost Forest.forestScheme (by decide)
 
-theorem signature_size : scheme.SignatureSizeAtMost paperParams.signatureBits :=
+theorem signature_size : scheme.SignatureSizeAtMost maxSignatureBits :=
   AlgorithmAdapter.signatureSize Forest.forestScheme
 
-theorem rejects_oversized : scheme.RejectsOversized paperParams.signatureBits :=
+theorem rejects_oversized : scheme.RejectsOversized maxSignatureBits :=
   AlgorithmAdapter.rejectsOversized Forest.forestScheme
 
 /-- Every honestly returned signature verifies under the same oracle. -/
