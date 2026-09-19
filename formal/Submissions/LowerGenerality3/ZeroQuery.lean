@@ -9,31 +9,33 @@ open scoped Classical
 
 namespace OptimalOTS.LowerGenerality3
 
-abbrev Cache (P : Params) := (hashSpec P).QueryCache
-abbrev run (P : Params) {α : Type} (oa : OracleComp (Spec P) α) (c : Cache P) :
-    ProbComp (α × Cache P) := (simulateQ (oracleImpl P) oa).run c
+attribute [local irreducible] hashBits blockBits pkBits msgBits securityBits maxSignatureBits keygenBudget signBudget
+
+abbrev Cache := (hashSpec).QueryCache
+abbrev run {α : Type} (oa : OracleComp Spec α) (c : Cache) :
+    ProbComp (α × Cache) := (simulateQ (oracleImpl) oa).run c
 abbrev E {α : Type} (p : ProbComp α) (f : α → ℝ≥0∞) := expectedValue p f
 
 /-- Keep private randomness and replace every hash answer by zero. -/
-def freeImpl (P : Params) : QueryImpl (Spec P) ProbComp :=
+def freeImpl : QueryImpl Spec ProbComp :=
   HasQuery.toQueryImpl (spec := unifSpec) (m := ProbComp) +
-    (show QueryImpl (hashSpec P) ProbComp from fun _ => pure (0 : BitVec P.hashBits))
+    (show QueryImpl (hashSpec) ProbComp from fun _ => pure (0 : BitVec hashBits))
 
-def freeRun (P : Params) {α : Type} (oa : OracleComp (Spec P) α) : ProbComp α :=
-  simulateQ (freeImpl P) oa
+def freeRun {α : Type} (oa : OracleComp Spec α) : ProbComp α :=
+  simulateQ (freeImpl) oa
 
-theorem run_pure (P : Params) {α : Type} (x : α) (c : Cache P) :
-    run P (pure x) c = pure (x, c) := by simp [run]
+theorem run_pure {α : Type} (x : α) (c : Cache) :
+    run (pure x) c = pure (x, c) := by simp [run]
 
-theorem run_bind (P : Params) {α β : Type} (oa : OracleComp (Spec P) α)
-    (k : α → OracleComp (Spec P) β) (c : Cache P) :
-    run P (oa >>= k) c = run P oa c >>= fun p => run P (k p.1) p.2 := by
+theorem run_bind {α β : Type} (oa : OracleComp Spec α)
+    (k : α → OracleComp Spec β) (c : Cache) :
+    run (oa >>= k) c = run oa c >>= fun p => run (k p.1) p.2 := by
   simp only [run, simulateQ_bind, StateT.run_bind]
 
 /-- A zero-cost program never hashes, so its output is independent of the unchanged cache. -/
-theorem run_zero (P : Params) {α : Type} (oa : OracleComp (Spec P) α)
-    (h : CostAtMost P oa 0) (c : Cache P) :
-    run P oa c = (fun x => (x, c)) <$> freeRun P oa := by
+theorem run_zero {α : Type} (oa : OracleComp Spec α)
+    (h : CostAtMost oa 0) (c : Cache) :
+    run oa c = (fun x => (x, c)) <$> freeRun oa := by
   induction oa using OracleComp.inductionOn with
   | pure x => simp [run_pure, freeRun]
   | query_bind t k ih =>
@@ -43,15 +45,15 @@ theorem run_zero (P : Params) {α : Type} (oa : OracleComp (Spec P) α)
     cases t with
     | inr q =>
       have hcost := hb.1
-      change blockCost P q.1 ≤ 0 at hcost
+      change blockCost q.1 ≤ 0 at hcost
       unfold blockCost at hcost
       omega
     | inl t =>
-      have hk : ∀ u, CostAtMost P (k u) 0 := by
+      have hk : ∀ u, CostAtMost (k u) 0 := by
         intro u
         simpa [CostAtMost, queryCost] using hb.2 u
       simp only [run, simulateQ_bind, simulateQ_spec_query, StateT.run_bind]
-      have hl : (oracleImpl P (.inl t)).run c =
+      have hl : (oracleImpl (.inl t)).run c =
           HasQuery.query (spec := unifSpec) (m := ProbComp) t >>= fun u => pure (u, c) := by
         simp [oracleImpl, StateT.run_monadLift]
       rw [hl]
@@ -62,25 +64,25 @@ theorem run_zero (P : Params) {α : Type} (oa : OracleComp (Spec P) α)
       funext u
       exact ih u (hk u)
 
-abbrev win (P : Params) (oa : OracleComp (Spec P) Bool) (c : Cache P) : ℝ≥0∞ :=
-  Pr[= true | Prod.fst <$> run P oa c]
+abbrev win (oa : OracleComp Spec Bool) (c : Cache) : ℝ≥0∞ :=
+  Pr[= true | Prod.fst <$> run oa c]
 
-theorem probTrue_eq_win (P : Params) (oa : OracleComp (Spec P) Bool) :
-    probTrue P oa = win P oa ∅ := by simp [probTrue, win, run, StateT.run'_eq]
+theorem probTrue_eq_win (oa : OracleComp Spec Bool) :
+    probTrue oa = win oa ∅ := by simp [probTrue, win, run, StateT.run'_eq]
 
-theorem win_bind (P : Params) {α : Type} (oa : OracleComp (Spec P) α)
-    (k : α → OracleComp (Spec P) Bool) (c : Cache P) :
-    win P (oa >>= k) c = E (run P oa c) (fun x => win P (k x.1) x.2) := by
+theorem win_bind {α : Type} (oa : OracleComp Spec α)
+    (k : α → OracleComp Spec Bool) (c : Cache) :
+    win (oa >>= k) c = E (run oa c) (fun x => win (k x.1) x.2) := by
   rw [win, run_bind, map_bind, probOutput_bind_eq_expectedValue]
 
-theorem win_pure (P : Params) (b : Bool) (c : Cache P) :
-    win P (pure b) c = if b then 1 else 0 := by
+theorem win_pure (b : Bool) (c : Cache) :
+    win (pure b) c = if b then 1 else 0 := by
   cases b <;> simp [win, run_pure]
 
-theorem win_zero (P : Params) (oa : OracleComp (Spec P) Bool)
-    (h : CostAtMost P oa 0) (c : Cache P) :
-    win P oa c = Pr[= true | freeRun P oa] := by
-  rw [win, run_zero P oa h]
+theorem win_zero (oa : OracleComp Spec Bool)
+    (h : CostAtMost oa 0) (c : Cache) :
+    win oa c = Pr[= true | freeRun oa] := by
+  rw [win, run_zero oa h]
   simp
 
 theorem E_const {α : Type} (p : ProbComp α) (v : ℝ≥0∞) : E p (fun _ => v) = v :=
