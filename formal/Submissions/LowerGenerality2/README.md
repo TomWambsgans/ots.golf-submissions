@@ -1,19 +1,24 @@
-# Lower bound 18 for bare single-oracle DAGs
+# Generality 2/3 lower bound: 18 compressions
 
-`Solution.lean` exports `OptimalOTS.Challenge.LowerGenerality2.candidate : VerificationLowerBound paperParams 18`.
-It quantifies over every secure scheme of `OptimalOTS/Dag.lean`: one shared random oracle
-keyed by its input bit string, arbitrary deterministic node functions, and no separation or
-tagging hypothesis.
+Every secure DAG scheme, with arbitrary deterministic node functions and no separation or tagging
+hypothesis, has worst-case verification cost at least 18 compressions. `Solution.lean` exports
+`OptimalOTS.Challenge.LowerGenerality2.candidate` at the claim in `claim.txt`. The rules are on
+[ots.golf/rules](https://ots.golf/rules); the proof guide is
+[lower-generality-2.md](https://github.com/leanEthereum/ots.golf-dev/blob/main/docs/lower-generality-2.md).
 
-Assume every verification costs at most 17. The index and root each cost at least one, so each
-index recomputes at most 15 nonroot hash nodes, and there are fewer than `2^110` such
-reconstruction patterns among `2^115` indices: at least three quarters of the indices lie in
-classes of size at least eight. After receiving a signature, the attacker picks any algebraic
-record consistent with the disclosed values and the observed hash outputs; its disclosure at an
-index with the same pattern verifies under the actual oracle. Fresh message prefixes make the
-signing law exact, a search over `2^122` nonces hits a large class with probability at least
-`1/9`, and the forgery succeeds with probability at least `9/200` at total cost
-`1024 + 2^20 + 2^122 + 34`, contradicting 127-bit weak security.
+## Idea
+
+1. **Few reconstruction patterns.** Suppose every verification costs at most 17. The index and
+   root each cost at least one, so each index recomputes at most 15 non-root hash nodes: fewer
+   than `2^110` patterns among `2^115` indices. At least three quarters of the indices lie in
+   classes of size at least eight.
+2. **Signature conversion.** After receiving a signature, the attacker picks any algebraic record
+   consistent with the disclosed values and observed hash outputs; its disclosure at an index with
+   the same pattern verifies under the actual oracle.
+3. **Search.** Fresh message prefixes make the signing law exact; a search over `2^122` nonces
+   hits a large class with probability at least `1/9`. The forgery succeeds with probability at
+   least `9/200` at total cost `1024 + 2^20 + 2^122 + 34`, contradicting 127-bit weak security,
+   which strong security implies.
 
 ## Files
 
@@ -22,7 +27,7 @@ signing law exact, a search over `2^122` nonces hits a large class with probabil
 | `WeakSecurity.lean` | the weak experiment; strong security implies weak security |
 | `Semantics.lean`, `Encoding.lean` | algebraic graph records and deterministic evaluation; disclosure round trips |
 | `Cache.lean`, `Expectation.lean` | lazy bare-oracle runs; expectation identities |
-| `KeygenSupport.lean` | actual key-generation outputs satisfy the final cache's node equations |
+| `KeygenSupport.lean` | key-generation outputs satisfy the final cache's node equations |
 | `Conversion.lean` | moving a disclosure between indices with equal reconstruction patterns |
 | `Patterns.lean`, `PatternGoods.lean` | exact pattern counts and the large-class fraction |
 | `CacheFresh.lean`, `PatternHelpers.lean` | finite-cache prefix counting and probability bounds |
@@ -31,6 +36,10 @@ signing law exact, a search over `2^122` nonces hits a large class with probabil
 | `CostCore.lean`, `PatternAttack.lean` | the attack and its total pathwise query cost |
 | `PatternAssembly.lean`, `Solution.lean` | success bound, security contradiction, exported certificate |
 
-Build: `cd formal && lake build Submissions.LowerGenerality2.Solution`.
-Official verifier: `python3 verifier/verify.py lower-generality-2 --source .`.
-The architecture is described in `docs/lower-generality-2.md`.
+## Verify
+
+From the root of this repository:
+
+```sh
+python3 .contract/verifier/verify.py lower-generality-2 --source .
+```

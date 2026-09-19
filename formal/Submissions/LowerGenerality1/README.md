@@ -1,27 +1,48 @@
-# Lower bound 93 for whole-word DAGs
+# Generality 1/3 lower bound: 93 compressions
 
-`Solution.lean` exports
-`OptimalOTS.Challenge.LowerGenerality1.candidate : WholeWordVerificationLowerBound paperParams 93`.
-The retained track/root names are historical; the challenge now covers every secure DAG
-satisfying `Graph.WholeWords`, with no extra provenance or separation assumption.
+Every secure whole-word DAG scheme has worst-case verification cost at least 93 compressions.
+`Solution.lean` exports `OptimalOTS.Challenge.LowerGenerality1.candidate` at the claim in
+`claim.txt`. The rules are on [ots.golf/rules](https://ots.golf/rules); the proof guide is
+[lower-generality-1.md](https://github.com/leanEthereum/ots.golf-dev/blob/main/docs/lower-generality-1.md).
 
-The protected syntax in `OptimalOTS/WholeWords.lean` permits independent 128-bit sources,
-256-bit hashes, fixed public 128-bit words (parentless deterministic nodes), selecting a fixed
-output half, and concatenation of any number of earlier whole-word values. Signatures disclose complete values. The original DAG experiment, costs,
-nonce, cuts and resource limits remain unchanged.
+## Idea
 
-`WholeWordOrigins.lean` proves that 128 times the number of hash origins of a node is at most
-its width; a constant has no origins but still occupies 128 bits. Summing over the disclosed
-payload derives `DisclosureBound 41` from 5248 bits.
-`DisclosurePatterns.lean` and `OrderedCounting.lean` bound reconstruction patterns by
-`Nat.choose 131 41` if every verification costs at most 92 (90 nonroot hashes).
+1. **Few disclosed origins.** A hash origin of a node costs at least one complete 128-bit word of
+   its width (a constant has no origin but still occupies 128 bits), so a 5248-bit payload
+   discloses at most 41 origins.
+2. **Few reconstruction patterns.** If every verification costs at most 92 (90 non-root hashes),
+   the reconstruction patterns number at most `Nat.choose 131 41`, far fewer than the indices.
+3. **Signature conversion.** The attacker moves a signature's disclosure to another index with the
+   same pattern. Averaging over all pattern classes (Cauchy–Schwarz), with two freshness factors
+   of 99/100, the fresh-message forgery succeeds with probability at least 9801/280000 at total
+   cost at most `1024 + 2^20 + 2^122 + 2·91 + 2`, contradicting 127-bit weak security, which
+   strong security implies.
 
-The `Averaged*` modules prove the signing law, the repetition-class search bound and its
-Cauchy–Schwarz average. With two freshness factors of 99/100, the fresh-message forgery succeeds
-with probability at least 9801/280000. Its complete experiment costs at most
-1024 + 2^20 + 2^122 + 2*91 + 2, contradicting 127-bit weak security. Equal oracle inputs share
-answers throughout; constants, deterministic concatenations and either output half introduce no labels.
+Equal oracle inputs share answers throughout; constants, concatenations and either output half
+introduce no labels.
 
-Build: `cd formal && lake build Submissions.LowerGenerality1.Solution`.
-Official verifier: `python3 verifier/verify.py lower-generality-1 --source .`.
-The candidate's axiom guard permits only `propext`, `Classical.choice`, and `Quot.sound`.
+## Files
+
+| File | Content |
+|---|---|
+| `WeakSecurity.lean` | the weak experiment; strong security implies weak security |
+| `Semantics.lean`, `Encoding.lean` | graph records and deterministic evaluation; disclosure round trips |
+| `Cache.lean`, `CacheFresh.lean`, `Expectation.lean` | lazy-oracle caches, fresh message prefixes, expectation identities |
+| `KeygenSupport.lean` | key-generation outputs satisfy the final cache's node equations |
+| `WholeWordOrigins.lean` | 128 times the number of hash origins is at most a node's width; `DisclosureBound 41` |
+| `DisclosurePatterns.lean`, `OrderedCounting.lean` | hash origins of disclosed values; the `Nat.choose 131 41` pattern count |
+| `Patterns.lean`, `PatternGoods.lean`, `PatternHelpers.lean` | pattern counting and probability helpers |
+| `Conversion.lean` | moving a disclosure between indices with equal reconstruction patterns |
+| `Index.lean`, `SignFresh.lean`, `AveragedSigning.lean` | the signing loop and its exact fresh-cache law |
+| `PatternSearch.lean`, `AveragedSearch.lean` | nonce search and its success per pattern class |
+| `CostCore.lean`, `PatternAttack.lean`, `AveragedAttack.lean` | the attack and its pathwise cost |
+| `AveragedCounting.lean`, `AveragedAssembly.lean`, `PatternAssembly.lean` | the averaged success bound and the security contradiction |
+| `Solution.lean` | the exported certificate |
+
+## Verify
+
+From the root of this repository:
+
+```sh
+python3 .contract/verifier/verify.py lower-generality-1 --source .
+```

@@ -1,18 +1,33 @@
-# Generic verification lower bound: one compression
+# Generality 3/3 lower bound: 1 compression
 
-`Solution.lean` exports `OptimalOTS.Challenge.LowerGenerality3.candidate` with claim 1.
-It quantifies over arbitrary oracle algorithms satisfying perfect correctness, signing failure
-at most `2^-128`, the paper size and resource limits, and 127-bit weak unforgeability. The proof
-lemma covers every failure allowance at most one half.
+No admissible, secure oracle algorithm verifies at zero cost. `Solution.lean` exports
+`OptimalOTS.Challenge.LowerGenerality3.candidate` at the claim in `claim.txt`. The rules are on
+[ots.golf/rules](https://ots.golf/rules); the proof guide is
+[lower-generality-3.md](https://github.com/leanEthereum/ots.golf-dev/blob/main/docs/lower-generality-3.md).
 
-A zero-cost verifier makes no oracle queries. For every public key on which honest signing a
-fixed message can succeed, correctness gives a signature accepted with probability one by this
-oracle-independent verifier. A free classical selection chooses such a signature from public
-data. The attacker signs message 0 and forges message 1; its success is at least one half and
-its complete experiment costs at most 1024 + 2^20, contradicting security.
+## Idea
 
-`Costs.lean` proves structural cost rules, `ZeroQuery.lean` proves oracle independence, and
-`Proof.lean` constructs the attack. All proof code is in this submission root; the protected
-contract defines the generic interface and required statement.
+A zero-cost verifier makes no oracle queries. For every public key on which honest signing of a
+fixed message can succeed, correctness gives a signature that this oracle-independent verifier
+accepts with probability one, and a free classical selection chooses such a signature from public
+data. The attacker signs message 0 and forges message 1: it succeeds with probability at least one
+half at total cost at most `1024 + 2^20`, contradicting weak security, which strong security
+implies. The proof lemma covers every signing-failure allowance at most one half.
 
-Run `python3 verifier/verify.py lower-generality-3 --source .` from the repository root.
+## Files
+
+| File | Content |
+|---|---|
+| `WeakSecurity.lean` | the weak experiment; strong security implies weak security |
+| `Costs.lean` | structural cost rules |
+| `ZeroQuery.lean` | zero-cost verification is independent of the oracle cache |
+| `Proof.lean` | the attack and the security contradiction |
+| `Solution.lean` | the exported certificate |
+
+## Verify
+
+From the root of this repository:
+
+```sh
+python3 .contract/verifier/verify.py lower-generality-3 --source .
+```
