@@ -7,34 +7,6 @@ namespace OptimalOTS.RiscvUpperProgram
 
 open RiscvZkvm.Rv64
 
-/-- The literal word computed by the assembler's one- or two-instruction expansion. -/
-def literalValue (n : ℕ) : Word :=
-  if n < 2048 then signExtend12 (BitVec.ofNat 12 n) else
-    ((BitVec.ofNat 20 ((n + 2048) / 4096)).zeroExtend 32 <<< 12).signExtend 64 +
-      signExtend12 (BitVec.ofNat 12 n)
-
-theorem constant_ready (s : MachineState) (r : Reg) (n : ℕ) :
-    Riscv.LinearReady s (constant r n) := by
-  unfold constant
-  split <;> simp [Riscv.LinearReady, Riscv.linearInstruction, Riscv.memoryReady]
-
-theorem constant_value (s : MachineState) (r : Reg) (n : ℕ) (nonzero : r ≠ .x0) :
-    ((constant r n).foldl execInstrBr s).getReg r = literalValue n := by
-  unfold constant literalValue
-  split <;> simp only [List.foldl_cons, List.foldl_nil, execInstrBr,
-    MachineState.getReg_setPC, MachineState.getReg_setReg_eq nonzero,
-    show s.getReg .x0 = 0 from rfl]
-  exact BitVec.zero_add _
-
-theorem constant_preserves (s : MachineState) (r other : Reg) (n : ℕ) (different : r ≠ other) :
-    ((constant r n).foldl execInstrBr s).getReg other = s.getReg other := by
-  unfold constant
-  split <;> simp [execInstrBr, MachineState.getReg_setReg_ne, different]
-
-theorem constant_mem (s : MachineState) (r : Reg) (n : ℕ) :
-    ((constant r n).foldl execInstrBr s).mem = s.mem := by
-  cases r <;> unfold constant <;> split <;> rfl
-
 theorem signExtend12_nonnegative (n : ℕ) (hn : n < 2048) :
     signExtend12 (BitVec.ofNat 12 n) = BitVec.ofNat 64 n := by
   have msb : (BitVec.ofNat 12 n).msb = false := by
@@ -57,14 +29,13 @@ theorem signExtend13_nonnegative (n : ℕ) (hn : n < 4096) :
   simp only [BitVec.toNat_setWidth, BitVec.toNat_ofNat]
   omega
 
-theorem whenNonzero_transition (s : MachineState) (r : Reg) (body : Code)
-    (bound : body.length < 1023) (located : Riscv.CodeAt s s.pc (whenNonzero r body)) :
-    step s = some (s.setPC (s.pc + if s.getReg r = 0 then
-      BitVec.ofNat 64 (4 * (body.length + 1)) else 4)) := by
-  rw [step, located.head]
-  have hsign := signExtend13_nonnegative (4 * (body.length + 1)) (by omega)
-  simp only [execInstrBr, show s.getReg .x0 = 0 from rfl,
-    hsign]
-  by_cases h : s.getReg r = 0#64 <;> simp [h]
+/-- A forward `BEQ` over a three-instruction rejection. -/
+theorem beq_transition (s : MachineState) (r r' : Reg)
+    (fetch : s.code s.pc = some (.BEQ r r' 16)) :
+    step s = some (s.setPC (s.pc + if s.getReg r = s.getReg r' then 16 else 4)) := by
+  rw [step, fetch]
+  have hsign : signExtend13 (16 : BitVec 13) = 16 := by decide
+  simp only [execInstrBr, hsign]
+  by_cases h : s.getReg r = s.getReg r' <;> simp [h]
 
 end OptimalOTS.RiscvUpperProgram
