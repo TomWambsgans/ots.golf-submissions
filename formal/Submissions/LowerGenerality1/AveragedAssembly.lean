@@ -26,7 +26,7 @@ attribute [local irreducible] signIdx signIdxLoop Scheme.sign Scheme.signLoop
 
 theorem signed_stage_ge (hcount : (Finset.univ.image S.hashPattern).card ≤ Nat.choose 129 42)
     (x : S.graph.Assignment) (c : Cache) (hc : S.graph.CacheConsistent x c)
-    (D : Finset Query) (hD : HasSupport c D) (hcard : D.card ≤ 1024)
+    (D : Finset Query) (hD : HasSupport c D) (hcard : D.card ≤ 2 ^ 20)
     (m : Message) (hfresh : FreshMessage c m) :
     (99 / 2800 : ℝ≥0∞) ≤ E (run (signIdx m) c)
       (fun p => E (run (afterSign S (2 ^ 122) (S.publicKey x) x m p.1) p.2) win) := by
@@ -65,11 +65,11 @@ theorem signed_stage_ge (hcount : (Finset.univ.image S.hashPattern).card ≤ Nat
 
 theorem choose_stage_ge (hcount : (Finset.univ.image S.hashPattern).card ≤ Nat.choose 129 42)
     (x : S.graph.Assignment) (c : Cache) (hc : S.graph.CacheConsistent x c)
-    (D : Finset Query) (hD : HasSupport c D) (hcard : D.card ≤ 1024) :
+    (D : Finset Query) (hD : HasSupport c D) (hcard : D.card ≤ 2 ^ 20) :
     (9801 / 280000 : ℝ≥0∞) ≤ E ($ᵗ BitVec msgBits) (fun m =>
       E (run (signIdx m) c)
         (fun p => E (run (afterSign S (2 ^ 122) (S.publicKey x) x m p.1) p.2) win)) := by
-  have hmass := fresh_mass_paper_99 hD (hcard.trans (by norm_num : 1024 ≤ 2 ^ 22))
+  have hmass := fresh_mass_paper_99 hD (hcard.trans (by norm_num : 2 ^ 20 ≤ 2 ^ 22))
   have h := expectedValue_ge_indicator ($ᵗ BitVec msgBits) (FreshMessage c)
     (fun m => E (run (signIdx m) c)
       (fun p => E (run (afterSign S (2 ^ 122) (S.publicKey x) x m p.1) p.2) win))
@@ -89,7 +89,7 @@ theorem success_ge_count (hcount : (Finset.univ.image S.hashPattern).card ≤ Na
   intro p hp
   obtain ⟨hpk, hc⟩ := S.keygen_cacheConsistent ∅ p hp
   obtain ⟨D, hD, hcard⟩ := exists_support_run_empty S.costAtMost_keygen p hp
-  change D.card ≤ 1024 at hcard
+  change D.card ≤ 2 ^ 20 at hcard
   rcases p with ⟨⟨pk,x⟩,c⟩
   dsimp only at hpk hc hD hcard ⊢
   subst hpk

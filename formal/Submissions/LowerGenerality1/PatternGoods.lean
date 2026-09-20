@@ -29,17 +29,6 @@ theorem goodIndices_lt (S : Scheme) :
   obtain ⟨i, _, rfl⟩ := Finset.mem_image.mp hn
   exact i.isLt
 
-theorem card_goodIndices (S : Scheme) (hcost : ∀ i, S.verifyCost i ≤ 17) :
-    3 * numCuts ≤ 4 * (goodIndices S).card := by
-  have hb := S.card_small_samePattern_mul_four_le hcost
-  have hs := Finset.card_filter_add_card_filter_not
-    (s := (Finset.univ : Finset (Fin numCuts)))
-    (p := fun i => (S.samePattern i).card < 8)
-  simp only [Finset.card_univ, Fintype.card_fin, not_lt] at hs
-  unfold goodIndices
-  rw [Finset.card_image_of_injective _ Fin.val_injective]
-  omega
-
 attribute [local irreducible] hashBits blockBits pkBits msgBits securityBits maxSignatureBits keygenBudget signBudget nonceBits idxBits numCuts trials
 
 theorem cost_signIdx (S : Scheme)

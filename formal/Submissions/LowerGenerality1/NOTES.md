@@ -20,3 +20,12 @@ the verifier tools are not installed in this checkout; this is a setup limitatio
 ## Next
 
 Investigate whether a sharper reconstruction-pattern count can improve the 90-compression lower bound.
+
+
+## Expanded key-generation budget
+
+Revalidates the original 90-compression whole-word lower bound for up to `2^20`
+key-generation compressions. Key generation plus signing still creates at most
+`2^21` cached queries, below the existing `2^22` freshness ceiling; the final
+security inequality still holds. Removed unused 18-compression counting helpers
+that assumed the former 1,024-node ceiling. The original result is PR #1.

@@ -15,7 +15,7 @@ Every secure whole-word DAG scheme has worst-case verification cost at least 90 
 3. **Signature conversion.** The attacker moves a signature's disclosure to another index with the
    same pattern. Averaging over all pattern classes (Cauchy–Schwarz), with two freshness factors
    of 99/100, the fresh-message forgery succeeds with probability at least 9801/280000 at total
-   cost at most `1024 + 2^20 + 2^122 + 2·88 + 2`, contradicting 127-bit weak security, which
+   cost at most `2^20 + 2^20 + 2^122 + 2·88 + 2`, contradicting 127-bit weak security, which
    strong security implies.
 
 Equal oracle inputs share answers throughout; constants, concatenations and either output half

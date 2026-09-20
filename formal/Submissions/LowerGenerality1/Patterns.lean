@@ -136,48 +136,5 @@ theorem card_small_fibers_le {ι α : Type*} [Fintype ι] [DecidableEq α]
     _ = k * (bad.image f).card := by simp [Nat.mul_comm]
     _ ≤ k * (Finset.univ.image f).card := Nat.mul_le_mul_left k (Finset.card_le_card himage)
 
-theorem choose_sum_1023_15_lt :
-    (∑ k ∈ Finset.range 16, Nat.choose 1023 k) < 2 ^ 110 := by
-  norm_num [Finset.sum_range_succ, Nat.choose_eq_descFactorial_div_factorial,
-    Nat.descFactorial, Nat.factorial]
-
 end PatternCounting
-
-namespace Dag.Scheme
-
-theorem card_hashPattern_image_le (S : Scheme)
-    (hcost : ∀ i, S.verifyCost i ≤ 17) :
-    (Finset.univ.image S.hashPattern).card ≤ 2 ^ 110 := by
-  have hroot : S.graph.root ∈ S.graph.hashNodes :=
-    Finset.mem_filter.mpr ⟨Finset.mem_univ _, S.graph.root_isHash⟩
-  have hn : (S.graph.hashNodes.erase S.graph.root).card ≤ 1023 := by
-    rw [Finset.card_erase_of_mem hroot]
-    have h := S.graph.card_hashNodes_le_keygenCost.trans S.keygen_le
-    change S.graph.hashNodes.card ≤ 1024 at h
-    omega
-  have hs : ∀ i, (S.hashPattern i).card ≤ 15 := by
-    intro i
-    have hc := hcost i
-    have hp := S.card_hashPattern_le i
-    change 1 + S.graph.reconstructCost (S.sets i) ≤ 17 at hc
-    omega
-  exact (PatternCounting.card_image_le_choose_sum S.hashPattern
-    (S.graph.hashNodes.erase S.graph.root) 15 1023 hn S.hashPattern_subset hs).trans
-      PatternCounting.choose_sum_1023_15_lt.le
-
-/-- At most one quarter of the indices have fewer than eight equal reconstruction patterns. -/
-theorem card_small_samePattern_mul_four_le (S : Scheme)
-    (hcost : ∀ i, S.verifyCost i ≤ 17) :
-    (Finset.univ.filter fun i => (S.samePattern i).card < 8).card * 4 ≤
-      numCuts := by
-  have h := PatternCounting.card_small_fibers_le S.hashPattern 8
-  have hn := S.card_hashPattern_image_le hcost
-  change (Finset.univ.filter fun i => (S.samePattern i).card < 8).card ≤
-    8 * (Finset.univ.image S.hashPattern).card at h
-  have hb := h.trans (Nat.mul_le_mul_left 8 hn)
-  change _ ≤ 2 ^ 115
-  have hnumeral : 8 * 2 ^ 110 * 4 = (2 : ℕ) ^ 115 := by norm_num
-  simpa only [hnumeral] using Nat.mul_le_mul_right 4 hb
-
-end Dag.Scheme
 end OptimalOTS
