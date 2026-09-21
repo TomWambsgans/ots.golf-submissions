@@ -1,163 +1,182 @@
-# Candidate 92: weighted minimum selection over disclosure cuts
+# Candidate 91: equal-cost chain-18 cuts with collision-aware replay
 
-This construction has a Lean-checked verifier bound of 92 hash compressions on
-every raw input and every oracle-answer path, together with the exact contract's
-raw-signature admissibility and strong-security theorems. The existing record
-is 100; official verification and publication of 92 are pending. An isolated
-mathematical check does not replace the hosted verdict or establish a new record.
+This root claims a worst-case verification bound of 91 compressions for the
+generic upper-bound track. It exports the canonical raw bit-string scheme,
+including deterministic verification, oversized-input rejection, admissibility,
+and 127-bit strong security.
 
-The construction combines a compact disclosure forest with an uneven
-distribution over its admissible cuts. Signing searches for a low-tier cut;
-verification recomputes only the path from that cut to the public key.
+## Construction
 
-## Where the eight compressions come from
+The DAG consists of:
 
-The graph has 54 tagged chains of length 18, grouped into 18 ternary hashes and
-one root. Each disclosed value has 129 bits. A signature reveals six group
-values and one value on each of the other 36 chains, for 42 values total.
-The remaining chain lengths sum to 74. Verification therefore costs
+- 66 chains, each with 18 one-compression steps;
+- 18 lower ternary hashes over the first 54 chain ends;
+- 10 upper ternary hashes;
+- one ten-input root hash costing three compressions.
 
-```
-74 chain compressions + 12 group compressions + 5 root compressions
-  + 1 message/nonce index compression = 92.
-```
+Eight upper nodes have two lower children and one direct chain. The remaining
+two have one lower child and two direct chains. All disclosed graph values are
+129 bits; the public key is the low 128 bits of the root output.
 
-Key generation costs `54*18 + 18 + 5 = 995` compressions. The wire format uses
-an 86-bit nonce and `42*129` disclosure bits, exactly the 5504-bit limit. The
-cost theorem quantifies over arbitrary raw signatures, including rejecting
-inputs. All pure computation follows the compression track's cost model; this
-is not a cycle-count claim.
+Key generation costs
 
-## Weighted classes and the exact sampler
+`66 * 18 + 18 + 10 + 3 = 1219`
 
-The cut family is large enough for 770731564938763476110450815401984 distinct
-classes. The decoder places them in 72 tiers. Tier `j` has `19*2^(104-j)` classes
-for `j<71`, with `91*2^33` classes in the last tier. Each class in tier `j`
-receives `2^(j+1)` accepted aliases in the low 129 bits of the hash output.
-The total accepted mass is exactly `45/524288`.
+compressions.
 
-Signing makes all `L=2^20` independent 86-bit nonce draws, with replacement,
-and queries the same memoized random oracle on each message/nonce pair. It
-returns the first occurrence in the lowest accepted tier, or fails if none is
-accepted. Repeated nonces keep their cached answers. The availability proof
-handles those repetitions and gives failure at most `2^-129`, inside the
-required `2^-128` limit.
+A structural mode `(a,b,g)` expands `a` of the eight first-kind upper nodes,
+`b` of the two second-kind upper nodes, and `g` available lower nodes. It has
 
-The unequal alias multiplicities let the finite cut family support a spread of
-class probabilities. Searching all trials for the lowest tier changes the
-chosen-class distribution. This is the statistical part of the improvement:
-the proof accounts for that selection rule exactly, rather than treating the
-winner as an ordinary accepted sample.
+- `a + b + g` expanded ternary nodes;
+- `10 + 2*(a+b+g)` disclosed words;
+- `a + 2*b + 3*g` active chains;
+- fixed reconstruction cost `3 + a + b + g`.
 
-## The proof mechanism
+The active chain positions are chosen so their remaining lengths sum to
 
-Fix the entire finite nonce table for one message. Let `A` be the fraction of
-entries with no accepted tier below `j`, and `B` the fraction with no accepted
-tier at most `j`. For a particular nonce in tier `j`, its probability of being
-selected is
+`87 - (a+b+g)`.
 
-```
-K_L(A,B)/N,  where N = 2^86
-K_L(A,B) = sum_{t=0}^{L-1} B^t A^(L-1-t).
-```
+Consequently every supported cut has exact graph reconstruction cost 90, and
+the constraint `a+b+g <= 16` limits disclosure to 42 words.
 
-This polynomial includes equal-tier ties and duplicate draws. Its monotonicity
-provides the posterior bound when a previously unexposed public coordinate is
-resampled. A finite eager-table coupling carries that argument back to the
-actual lazy random oracle. The rest of the oracle remains the same shared
-cache, including graph queries and the signer's private nonwinning queries.
-Public exposure is tracked separately from implementation-cache membership.
+The contribution of a mode is
 
-The final analysis divides a successful forgery into graph authentication,
-replay through the public cache before signing, and a newly exposed index
-input. All three charges use the same actual execution budget. Distinct public
-index queries, other paid queries, and the post-sign remaining budget are
-accounted for together.
+`choose(8,a) * choose(2,b) * choose(2*a+b,g)
+  * comp(a+2*b+3*g, 87-(a+b+g))`.
 
-For small budgets, exact stopped first and second moments control the replay
-term. For large budgets, a clipped hazard process and an exponential bound
-control every message row at once. Empirical good events stay inside joint
-expectations; the proof does not condition the posterior argument on them.
-A separate completion tower averages the conditional bad-table error after
-the adversary's adaptive first stage. The small-budget branch is checked at
-`(243337/245000)*κ*B`, and the large-budget branch at `0.991*κ*B`, both strictly
-below `κ*B`, with `κ=2^-127`.
+Summing all valid modes gives exactly
+
+`676013856769711926075368867014708`
+
+distinct cuts. Distinct scheduled classes are mapped injectively to this
+family.
+
+## Signature and verification cost
+
+A signature contains an 86-bit nonce and at most 42 disclosed 129-bit values:
+
+`86 + 42 * 129 = 5504` bits.
+
+Verification reconstructs the selected cut in 90 compressions. Its
+256-bit-message/86-bit-nonce query has length 342 and costs one compression,
+so the worst-case total is 91 on arbitrary raw inputs and oracle-answer paths.
+
+## Exact 160-tier schedule
+
+`CompactSchedule91.lean` contains literal lists of 160 class populations,
+160 per-class alias multiplicities, and 160 upward-rounded winner-kernel
+numerators.
+
+The class populations sum to the exact cut-family cardinality above. They run
+from
+
+- tier 0: `165731999761240428825280379636982` classes;
+- tier 159: `6273147585895` classes.
+
+The per-class alias multiplicities are strictly increasing, from
+
+- tier 0: `374796160129614344588800418032272040264`;
+- tier 159:
+  `9901842140742959321105762597502091375939212910554127043776`.
+
+The multiplicity-weighted total is exactly
+
+`9938514739378411853906048441678916651529596919925356639434040636883783447`
+
+accepted 256-bit answers. The decoder identifies this accepted prefix with the
+schedule's alias type and proves every class and tier fiber exactly.
+
+Signing performs `L = 2^20` 86-bit nonce trials with replacement and retains
+the earliest occurrence in the minimum accepted tier. The certificate scales
+kernel witnesses by `2^80`; twenty outward-rounded squarings at `2^512`
+precision bound the true first-minimum kernels.
+
+The checked schedule envelopes include
+
+- reference mean `< (967/1000) * κ`;
+- kernel maximum `< (4/5) * L`;
+- per-class winner weight `< (17/40) * L * κ`;
+- diagonal term `< (13/40) * L^2 * κ`;
+- post-sign positive part `< 47/100`;
+
+where `κ = 2^-127`.
+
+Nonce reuse is included in the availability calculation. The resulting honest
+signing failure is at most `2^-129`, within the required `2^-128` bound.
+
+## Authentication and actual-cache security
+
+Every supported cut has equal reconstruction cost. Two distinct cuts are
+therefore incomparable in the required direction: reconstruction from the
+forged cut evaluates a value disclosed by the signed cut. Following the hash
+immediately above that value produces either a hidden-key cache hit or a
+binding discrepancy. This supplies the concrete cross-cut authentication
+event.
+
+The replay proof keeps the actual shared memoized cache. It separately tracks
+
+- all exposed 342-bit index inputs;
+- the selected message's 86-bit nonce row;
+- repeated decodings of the same class;
+- paid non-index queries;
+- the post-sign remaining budget.
+
+For each message row, the good event has 162 coordinates: 160 prefix deficits,
+the reference score, and the literal post-sign excess score. Direct Freedman
+bounds give a simultaneous empirical failure at most `2^-512`. Completion of
+all message rows contributes at most `2^-760`, and the simultaneous class
+occupancy cap fails with probability at most `2^-334`.
+
+For `B <= 2^86/64`, stopped first and second moments give the coefficient
+
+`6235189 / 6272000`.
+
+For `2^86/64 <= B <= 2^127`, an equality-collision martingale, global diagonal
+clock, and occupancy cap give four `2^-244` tails plus the `2^-334` occupancy
+tail and coefficient
+
+`2423 / 2450`.
+
+Both coefficients are strictly below one. Above `2^127`, the universal
+probability bound closes the security inequality directly.
 
 ## What required care
 
-An early-exit signing argument does not apply here: the all-trial signer keeps
-private accepted nonwinners in the cache. Charging only implementation-cache
-misses would miss later public queries to those inputs. The proof instead
-retains the full private cache and charges first public exposures.
+Treating the `2^20` nonce draws as fresh would be unsound: duplicate nonces
+reuse the same memoized answer. Availability explicitly includes the
+`L / 2^86` collision term, and the security proof retains private nonwinning
+queries and charges their later public exposure.
 
-A fixed observed transcript can have an atypical completion distribution.
-The small bad-table probability is proved after averaging over the actual
-adaptive execution, not as a uniform pointwise promise for every transcript.
-Likewise, the signing continuation budget is used only for supported outputs;
-an arbitrary fixed cache need not support every syntactically possible class.
+A `1/100` allowance for the completed-row excess does not close the large
+scalar inequality:
 
-## Export and validation status
+`1/2 + (99/98)*(48/100) > (99/98)*(968/1000)`.
 
-`WideHonest.admissible`, `WideWire.cost`, and `WideSecure.raw_secure` are checked
-on the exact raw scheme, with only `propext`, `Classical.choice`, and `Quot.sound`.
-`WideBudgetEndpoints.raw_secure_of_typed` supplies the canonical encoding
-transfer for strong security, including same-message alternate signatures.
-`Solution.lean` exports these exact declarations under the contract's names.
+The final proof controls the excess score directly at `1/1000`, producing the
+`471/1000` completed-row bound.
 
-The full staged root must still pass the official import policy, file limit,
-axiom audit, statement comparison, and kernel replay. The mathematical result
-is checked; the official submission result and any new record remain pending.
+The completion-table good event cannot be assumed pointwise after an adaptive
+transcript. Its failure is averaged through the actual preceding computation.
 
-Further improvements should search the weighted tier schedule and the
-disclosure-family geometry together, then reuse the exact first-minimum kernel
-and the common-budget proof. A promising numerical schedule still needs its
-finite class embedding, all-input resource bound, and actual-game security
-connection checked before it can support another claim.
+## Validation
 
-## Follow-up experiments: where a larger gain could come from
+Run from the repository root:
 
-The next experiments below are research calculations, not additional Lean
-security claims. Write `C = 2^-127 * 2^20 * M`, where M is the number of
-accepted cut classes. The current construction uses C≈4.75. An exact finite
-sampling argument gives a floor very close to4 for the present class-reuse
-strategy. A restricted actual replay calculation supports the same floor;
-it does not give a lower bound for arbitrary signature algorithms.
+`python3 .contract/verifier/verify.py upper-compressions --source .`
 
-Changing the tree helps, but not enough by itself. Among21,209 screened
-heterogeneous129-bit trees, the largest class capacity at91 compressions was
-C=4.0445558341. Mixed reconstruction ranks added negligibly to that count.
-It leaves little room above the class-reuse floor for the adaptive security
-analysis. Uniform, mixed-arity and regular two-level families did not produce
-a larger lead. These searches are bounded families, not an exhaustive search
-over all trees or DAGs.
+The exported endpoint and each newly introduced proof layer were also compiled
+with Lean 4.33.1 while developing this submission. Public verified status
+begins only with the hosted durable verdict.
 
-A more substantial structural change uses43 words of126bits plus an86-bit
-nonce, still exactly5504bits. Four such words and an8-bit tag fit one512-bit
-compression. A tree with70 chains of length14 and23 four-child branch nodes
-uses1003 key-generation compressions and has raw capacity C=6.1843987025 at
-verification88. Its weaker authentication has no security proof, and variable
-disclosure lengths still need a canonical wire encoding.
+## What to try next
 
-One proposed safeguard was to retain only cuts such that moving between any
-two requires at least two separately hidden chain coordinates in each
-direction. Ordinary Hamming distance is insufficient: a long backward move
-on one chain still needs only one hidden coordinate. The stronger directed
-condition loses too many classes. Within each fixed structural frontier,
-puncturing any three coordinates must be injective on such a code. Counting
-the possible projections, including all allowed reconstruction ranks, gives
-an upper bound C≤0.675761 across all11,420 screened126-bit trees. Requiring
-three hidden coordinates and puncturing five lowers this to C≤0.068389.
-These bounds require the condition across ranks as well as within a rank.
+The smaller numerical margin is the small-budget coefficient
+`6235189/6272000`. Possible gains are a tighter stopped factor than `65/64`, a
+smaller empirical multiplier than `99/98`, or a schedule with a lower reference
+mean while preserving the collision moments.
 
-This rules out that particular global cut-code safeguard in the screened
-trees. It leaves a concrete question: can an actual-game analysis safely
-permit some nearby cut pairs, or can a construction obtain comparable class
-capacity with stronger authentication? A raw capacity count alone cannot
-answer that question. The92-compression construction remains the proved
-candidate described above.
-
-
-## Expanded key-generation budget
-
-Revalidation under the `2^20` key-generation limit. Only the key-generation
-admissibility bound changes; the construction and verification score are unchanged.
+A 90-compression candidate would need graph reconstruction cost 89 after
+reserving the index compression. The present schedule consumes the exact
+supported-family cardinality, so that step likely requires joint optimization
+of the frontier modes and tier schedule while retaining an authentication
+argument as strong as the equal-cost cross-cut lemma.
