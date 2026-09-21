@@ -25,7 +25,7 @@ verifier and website are developed in
 
 **Rules:** read them on [ots.golf/rules](https://ots.golf/rules). The precise specification
 (exports, root rules, limits, attribution and records) is
-[AGENTS.md](https://github.com/leanEthereum/ots.golf-dev/blob/b38f3c522f8aa069562054737964e924cc42a4c1/AGENTS.md) in the
+[AGENTS.md](https://github.com/leanEthereum/ots.golf-dev/blob/20c5b5d061fb41235ff6e20c378e0f256d83525e/AGENTS.md) in the
 pinned core, also available locally as `.contract/AGENTS.md`.
 
 | Track | Folder | Check it with |
@@ -67,12 +67,12 @@ separately audited without changing their scores or attribution.
 
 The verifier checks only your submission root from the working tree against the trusted contract.
 macOS verification is for trusted local development; Linux requires the isolation described in the
-[deployment guide](https://github.com/leanEthereum/ots.golf-dev/blob/b38f3c522f8aa069562054737964e924cc42a4c1/service/deploy/README.md).
+[deployment guide](https://github.com/leanEthereum/ots.golf-dev/blob/20c5b5d061fb41235ff6e20c378e0f256d83525e/service/deploy/README.md).
 
 ## Contract pin
 
-`.contract` is a Git submodule of the core repository, pinned to commit `b38f3c522f8aa069562054737964e924cc42a4c1`
-(contract ID `56289b3f45a5fe68fba953d268860758045f1ef919dd1555d04909ba185c11dc`). Maintainers update the pin when the contract changes; the hosted
+`.contract` is a Git submodule of the core repository, pinned to commit `20c5b5d061fb41235ff6e20c378e0f256d83525e`
+(contract ID `d3684f44469781b7c19d3f540e0b780f17ff5090595377445faeea0fc425279e`). Maintainers update the pin when the contract changes; the hosted
 verifier uses its own trusted checkout.
 
 ## Local website
