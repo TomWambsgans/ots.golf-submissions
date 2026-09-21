@@ -11,7 +11,7 @@ Proof submissions for [ots.golf](https://ots.golf). A submission is a pull reque
 repository that creates or changes one submission root below. Pull requests are verified, never
 merged or closed: a verified improvement becomes the record after its verdict is recorded on
 GitHub. The bot then commits only that checked root and its `records.json` entry to `main`,
-preserving other tracks and repository files. `main` contains the three current record proof roots;
+preserving other tracks and repository files. `main` contains the four current record proof roots;
 the registry links each claim to its checked commit, PR and trusted core. When a maintainer
 ports an existing proof to updated rules, `record_origin` preserves the original record holder,
 submission and date; the certificate fields identify the adapted checked source. A proof port
@@ -25,13 +25,14 @@ verifier and website are developed in
 
 **Rules:** read them on [ots.golf/rules](https://ots.golf/rules). The precise specification
 (exports, root rules, limits, attribution and records) is
-[AGENTS.md](https://github.com/leanEthereum/ots.golf-dev/blob/b38f3c522f8aa069562054737964e924cc42a4c1/AGENTS.md) in the
+[AGENTS.md](https://github.com/leanEthereum/ots.golf-dev/blob/20c5b5d061fb41235ff6e20c378e0f256d83525e/AGENTS.md) in the
 pinned core, also available locally as `.contract/AGENTS.md`.
 
 | Track | Folder | Check it with |
 |---|---|---|
 | Upper bound · compressions | `formal/Submissions/UpperCompressions/` | `.contract/verifier/verify.py upper-compressions --source .` |
 | Upper bound · RISC-V cycles | `formal/Submissions/UpperRiscv/` | `.contract/verifier/verify.py upper-riscv --source .` |
+| Upper bound · leanISA cycles | `formal/Submissions/UpperLeanIsa/` | `.contract/verifier/verify.py upper-leanisa --source .` |
 | Lower bound · Whole-word DAGs | `formal/Submissions/LowerGenerality1/` | `.contract/verifier/verify.py lower-generality-1 --source .` |
 
 Protected source tags and verdict comments remain the historical authority; `main` is the
@@ -66,12 +67,12 @@ separately audited without changing their scores or attribution.
 
 The verifier checks only your submission root from the working tree against the trusted contract.
 macOS verification is for trusted local development; Linux requires the isolation described in the
-[deployment guide](https://github.com/leanEthereum/ots.golf-dev/blob/b38f3c522f8aa069562054737964e924cc42a4c1/service/deploy/README.md).
+[deployment guide](https://github.com/leanEthereum/ots.golf-dev/blob/20c5b5d061fb41235ff6e20c378e0f256d83525e/service/deploy/README.md).
 
 ## Contract pin
 
-`.contract` is a Git submodule of the core repository, pinned to commit `b38f3c522f8aa069562054737964e924cc42a4c1`
-(contract ID `56289b3f45a5fe68fba953d268860758045f1ef919dd1555d04909ba185c11dc`). Maintainers update the pin when the contract changes; the hosted
+`.contract` is a Git submodule of the core repository, pinned to commit `20c5b5d061fb41235ff6e20c378e0f256d83525e`
+(contract ID `d3684f44469781b7c19d3f540e0b780f17ff5090595377445faeea0fc425279e`). Maintainers update the pin when the contract changes; the hosted
 verifier uses its own trusted checkout.
 
 ## Local website
