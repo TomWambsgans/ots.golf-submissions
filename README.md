@@ -25,7 +25,7 @@ verifier and website are developed in
 
 **Rules:** read them on [ots.golf/rules](https://ots.golf/rules). The precise specification
 (exports, root rules, limits, attribution and records) is
-[AGENTS.md](https://github.com/leanEthereum/ots.golf-dev/blob/9b6b1c4229cb4a9c61f8acef79a4c51556c7988e/AGENTS.md) in the
+[AGENTS.md](https://github.com/leanEthereum/ots.golf-dev/blob/b38f3c522f8aa069562054737964e924cc42a4c1/AGENTS.md) in the
 pinned core, also available locally as `.contract/AGENTS.md`.
 
 | Track | Folder | Check it with |
@@ -57,14 +57,21 @@ python3 .contract/verifier/verify.py upper-compressions --source .   # see the t
 Change only your chosen track's root; do not edit `records.json`, another track or `.contract`
 in a proof PR. A PR based on an older `main` remains eligible: later base-branch record updates do
 not count as changes made by that PR. Each root must remain self-contained under the import rules.
+
+New RISC-V proof PRs also export `OptimalOTS.Challenge.UpperRiscv.image_size`, proving
+`submission.image.byteSize < 1048576`: four bytes per instruction plus embedded-data bytes,
+strictly below 1 MiB. When extending a pre-rule record snapshot, add this theorem to
+`Solution.lean`. Historical snapshots retain their checked source; their image sizes were
+separately audited without changing their scores or attribution.
+
 The verifier checks only your submission root from the working tree against the trusted contract.
 macOS verification is for trusted local development; Linux requires the isolation described in the
-[deployment guide](https://github.com/leanEthereum/ots.golf-dev/blob/9b6b1c4229cb4a9c61f8acef79a4c51556c7988e/service/deploy/README.md).
+[deployment guide](https://github.com/leanEthereum/ots.golf-dev/blob/b38f3c522f8aa069562054737964e924cc42a4c1/service/deploy/README.md).
 
 ## Contract pin
 
-`.contract` is a Git submodule of the core repository, pinned to commit `9b6b1c4229cb4a9c61f8acef79a4c51556c7988e`
-(contract ID `133f49c9ceaf596c3bf6aaf0941ffe126a1efe23db0785c8af1288b149cb093e`). Maintainers update the pin when the contract changes; the hosted
+`.contract` is a Git submodule of the core repository, pinned to commit `b38f3c522f8aa069562054737964e924cc42a4c1`
+(contract ID `56289b3f45a5fe68fba953d268860758045f1ef919dd1555d04909ba185c11dc`). Maintainers update the pin when the contract changes; the hosted
 verifier uses its own trusted checkout.
 
 ## Local website
