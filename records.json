@@ -66,6 +66,32 @@
       "submission_root": "formal/Submissions/UpperCompressions",
       "track": "upper-compressions"
     },
+    "upper-leanisa": {
+      "claim": 170549,
+      "commit": "86ed7c9a912323b158afd78d3bfa9baff8c0ac4b",
+      "contract": "bf2e347843dc8a1ff1fd87b38832e7e4f19a07837328e1950f9be290fe97a29d",
+      "contract_commit": "da1418bfec2a599ac36d035f3a1ec551e73d73a0",
+      "finished_at": "2026-09-23T19:27:02.519260Z",
+      "id": "65878d04fc2916d99848d240cfcda1dc",
+      "pr_number": 31,
+      "pr_url": "https://github.com/leanEthereum/ots.golf-submissions/pull/31",
+      "source_archive": {
+        "commit": "86ed7c9a912323b158afd78d3bfa9baff8c0ac4b",
+        "contract": "bf2e347843dc8a1ff1fd87b38832e7e4f19a07837328e1950f9be290fe97a29d",
+        "file_count": 42,
+        "sha256": "b34f6ca41c3b2c839c1fa4c2580415110055cc9046a6c7c7ba0542b5accbecba",
+        "size_bytes": 567561,
+        "source_repo": "https://github.com/leanEthereum/ots.golf-submissions.git",
+        "submission_root": "formal/Submissions/UpperLeanIsa",
+        "total_bytes": 554957,
+        "track": "upper-leanisa",
+        "version": 1
+      },
+      "source_ref": "refs/tags/ots-source/65878d04fc2916d99848d240cfcda1dc",
+      "source_tree": "e5f00f56e166b985fea0d737c2452ab012a2cbd9",
+      "submission_root": "formal/Submissions/UpperLeanIsa",
+      "track": "upper-leanisa"
+    },
     "upper-riscv": {
       "claim": 360,
       "commit": "16be83e74b3eb670535bcf09c00f1e9f9ca2d5ab",
